@@ -7048,20 +7048,25 @@ if (typeof module === "object") {
              */
             extractImages(htmlContent, baseUrl) {
                 console.log('🖼️ Extracting images from content...');
+                console.log(`  📍 Base URL for images: ${baseUrl}`);
                 
                 const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
                 const images = Array.from(doc.querySelectorAll('img'))
                     .map(img => {
-                        // Try multiple sources: src, data-src, data-lazy-src
-                        let src = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+                        // FIXED: Use getAttribute to get RAW src value (not browser-resolved)
+                        // img.src auto-resolves relative URLs to current page (wrong domain!)
+                        // img.getAttribute('src') returns the original attribute value
+                        let src = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
                         
-                        // Skip base64 embedded images
+                        // Skip base64 embedded images and empty sources
                         if (src && !src.startsWith('data:')) {
-                            // Convert relative URLs to absolute
+                            // Convert relative URLs to absolute using source page's URL
                             try {
-                                return new URL(src, baseUrl).href;
+                                const absoluteUrl = new URL(src, baseUrl).href;
+                                console.log(`  🔗 ${src} → ${absoluteUrl}`);
+                                return absoluteUrl;
                             } catch (e) {
-                                // If conversion fails, return as-is
+                                console.warn(`  ⚠️ Failed to resolve: ${src}`);
                                 return src;
                             }
                         }
