@@ -387,6 +387,8 @@ console.log('✅ MD5 loaded successfully (self-contained)');
             h1 { font-size: 2rem; }
             .search-form { flex-direction: column; }
             button { width: 100%; }
+            .cache-buttons { flex-direction: column !important; }
+            .cache-buttons button { width: 100% !important; flex: none !important; }
         }
     </style>
 </head>
@@ -432,7 +434,7 @@ console.log('✅ MD5 loaded successfully (self-contained)');
                 </div>
             </div>
             
-            <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; gap: 1rem; align-items: center;">
+            <div class="cache-buttons" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; gap: 1rem; align-items: center;">
                 <button type="button" onclick="viewCacheStats()" style="flex: 1; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2);">
                     📊 Cache Stats
                 </button>
