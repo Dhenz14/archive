@@ -14468,11 +14468,13 @@ ${escapeHtml(partContent)}
             const isIOSFirefox = platform.isIOS && platform.iosBrowser === 'firefox';
             const isIOSOtherBrowser = platform.isIOS && !isIOSSafari;
             
-            const archiveOrigin = window.location.origin;
-            const normalizedOrigin = archiveOrigin.replace(/\/$/, '');
+            // Get the full base URL including subdirectory path (e.g., /archive on GitHub Pages)
+            const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) || '/';
+            const archiveBase = window.location.origin + currentPath.replace(/\/$/, '');
+            const archiveOrigin = archiveBase;
             
             // iOS Safari: Use popup (works reliably)
-            const bookmarkletCode = `javascript:(function(){'use strict';try{const archiveUrl='${normalizedOrigin}/index.html?v='+Date.now()+'#mobile-extract';const html=document.documentElement.outerHTML;const url=window.location.href;const title=document.title;let mode='normal';let tweetOnlyHTML='';let repliesHTML=[];const isTwitter=url.includes('twitter.com')||url.includes('x.com');if(isTwitter){const mainTweet=document.querySelector('article[data-testid="tweet"]');if(mainTweet){tweetOnlyHTML=mainTweet.outerHTML;mode='tweet-only';}}const w=window.open(archiveUrl,'_blank');if(!w){alert('Please allow popups for ArcHive');return;}const h=function(e){if(e.data&&e.data.type==='ARCHIVE_READY'){w.postMessage({type:'ARCHIVE_EXTRACT',html:html,title:title,url:url,source:window.location.hostname,mode:mode,tweetOnlyHTML:tweetOnlyHTML,repliesHTML:repliesHTML},'${normalizedOrigin}');window.removeEventListener('message',h);}};window.addEventListener('message',h);setTimeout(()=>window.removeEventListener('message',h),10000);}catch(e){alert('Error: '+e.message);}})()`;
+            const bookmarkletCode = `javascript:(function(){'use strict';try{const archiveUrl='${archiveOrigin}/index.html?v='+Date.now()+'#mobile-extract';const html=document.documentElement.outerHTML;const url=window.location.href;const title=document.title;let mode='normal';let tweetOnlyHTML='';let repliesHTML=[];const isTwitter=url.includes('twitter.com')||url.includes('x.com');if(isTwitter){const mainTweet=document.querySelector('article[data-testid="tweet"]');if(mainTweet){tweetOnlyHTML=mainTweet.outerHTML;mode='tweet-only';}}const w=window.open(archiveUrl,'_blank');if(!w){alert('Please allow popups for ArcHive');return;}const h=function(e){if(e.data&&e.data.type==='ARCHIVE_READY'){w.postMessage({type:'ARCHIVE_EXTRACT',html:html,title:title,url:url,source:window.location.hostname,mode:mode,tweetOnlyHTML:tweetOnlyHTML,repliesHTML:repliesHTML},'${archiveOrigin}');window.removeEventListener('message',h);}};window.addEventListener('message',h);setTimeout(()=>window.removeEventListener('message',h),10000);}catch(e){alert('Error: '+e.message);}})()`;
             
             // If not Safari on iOS, show simple "use Safari" message
             if (isIOSOtherBrowser) {
