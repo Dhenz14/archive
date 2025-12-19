@@ -21,6 +21,7 @@ archive/
 │   │   ├── multipart-content.js  # Multi-part posting for large archives
 │   │   └── url-normalizer.js     # Canonical URL normalization
 │   └── images/
+│       ├── archive-logo.svg      # Golden shield logo (SVG)
 │       ├── galaxy-background.png
 │       ├── hive-logo.png
 │       └── hive-logo-red.png
@@ -29,6 +30,32 @@ archive/
 ├── LICENSE                 # MIT License
 └── CODE_OF_CONDUCT.md      # Community guidelines
 ```
+
+## Technical Architecture
+
+ArcHive is 100% client-side with zero server dependencies. The GitHub Pages deployment is fully self-contained.
+
+### Core Modules
+
+| Module | Purpose |
+|--------|---------|
+| `index.html` | Main app with Readability.js, DOMPurify, hashing, and Hive integration embedded |
+| `hive-lookup.js` | 9-node Hive API failover with exponential backoff |
+| `multipart-content.js` | Splits content >64KB into threaded blockchain comments |
+| `indexeddb-storage.js` | Persistent browser storage for resume capability |
+| `url-normalizer.js` | Canonical URL matching for archive discovery |
+| `blakejs-browser.js` | BLAKE2b cryptographic hashing |
+
+### Content Extraction Tiers
+
+1. **Direct Fetch** - Browser fetches URL directly (CORS-enabled sites)
+2. **CORS Proxies** - 3 fallback proxies for blocked sites
+3. **Bookmarklet** - User-triggered extraction via bookmark (works everywhere)
+
+### Blockchain Integration
+
+- **Desktop**: Hive Keychain browser extension
+- **Mobile**: Hive Authentication Service (HAS) with QR code/deep link
 
 ## How It Works
 
