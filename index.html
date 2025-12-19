@@ -6535,17 +6535,8 @@ if (typeof module === "object") {
                     }
                 }
                 
-                // 🎓 TIER 3: Server-Side Extraction (if available)
-                console.log('  📡 TIER 3: Attempting Real Extraction Server...');
-                if (progress) progress('Trying server-side extraction (Python backend)...');
-                try {
-                    return await this.processWithServer(url);
-                } catch (serverError) {
-                    if (serverError.name === 'AbortError') throw serverError;
-                    console.warn(`  ⚠️ TIER 3 FAILED: ${serverError.message}`);
-                }
-                
-                // 🎓 TIER 4: Offer Auto-Bookmarklet for Complex Sites
+                // 🎓 TIER 3: Offer Auto-Bookmarklet for Complex Sites
+                // Note: Server extraction was removed - ArcHive is 100% client-side
                 console.log('  ℹ️ TIER 4: Offering smart extraction options');
                 const siteName = this.getSiteName(url);
                 const isComplexSite = this.detectComplexSite(url);
@@ -6592,24 +6583,6 @@ if (typeof module === "object") {
                 } catch (e) {
                     return false;
                 }
-            }
-            
-            /**
-             * 🎓 TEACHING: Server-Side Extraction (DEPRECATED)
-             * This method is no longer used - ArcHive is now 100% client-side.
-             * For complex sites, users should use the bookmarklet method.
-             * Keeping this stub to prevent errors if called from legacy code paths.
-             */
-            async processWithServer(url) {
-                console.warn('⚠️ processWithServer is deprecated - ArcHive is now 100% client-side');
-                const siteName = this.getSiteName(url);
-                throw new Error(
-                    `For ${sanitizeForHTML(siteName)}, please use the ArcHive bookmarklet:\n\n` +
-                    `1. Drag the "ArcHive" button to your bookmarks bar\n` +
-                    `2. Navigate to the page you want to archive\n` +
-                    `3. Click the ArcHive bookmark\n\n` +
-                    `This extracts content directly from your browser - 100% decentralized!`
-                );
             }
             
             /**
