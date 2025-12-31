@@ -17524,7 +17524,7 @@ try {
                 const params = new URLSearchParams(search);
                 
                 // Wayback Machine redirect mode: ?wayback=<encoded_wayback_url>
-                // This is triggered when bookmarklet detects web.archive.org and redirects here
+                // This reuses the existing URL extraction flow which already has CORS proxy support
                 const waybackUrl = params.get('wayback');
                 if (waybackUrl) {
                     console.log('🏛️ Wayback Machine URL detected:', waybackUrl);
@@ -17534,59 +17534,23 @@ try {
                         window.history.replaceState({}, '', window.location.pathname);
                     }
                     
-                    // Show loading message
-                    showNotification('🏛️ Fetching Wayback Machine content...', 5000);
-                    
-                    try {
-                        // Wayback Machine needs CORS proxy - try multiple proxies with fallback
-                        const corsProxies = [
-                            'https://api.allorigins.win/raw?url=',
-                            'https://corsproxy.io/?'
-                        ];
+                    // Put URL in input box and auto-trigger extraction
+                    // This reuses the existing extractFromUrl() which has robust CORS proxy support
+                    const sourceUrlInput = document.getElementById('sourceUrlInput');
+                    if (sourceUrlInput) {
+                        sourceUrlInput.value = waybackUrl;
+                        showNotification('🏛️ Wayback Machine URL loaded! Extracting...', 3000);
                         
-                        let html = null;
-                        let lastError = null;
-                        
-                        for (const proxy of corsProxies) {
-                            try {
-                                console.log('🔄 Trying CORS proxy:', proxy);
-                                const proxyUrl = proxy + encodeURIComponent(waybackUrl);
-                                const response = await fetch(proxyUrl);
-                                if (response.ok) {
-                                    html = await response.text();
-                                    console.log('✅ CORS proxy succeeded:', proxy);
-                                    break;
-                                }
-                            } catch (proxyError) {
-                                console.warn('⚠️ Proxy failed:', proxy, proxyError.message);
-                                lastError = proxyError;
+                        // Auto-trigger extraction after a short delay
+                        setTimeout(() => {
+                            const archiveBtn = document.getElementById('archiveBtn');
+                            if (archiveBtn) {
+                                console.log('🚀 Auto-triggering GET ARCHIVE for Wayback URL');
+                                archiveBtn.click();
                             }
-                        }
-                        
-                        if (!html) {
-                            throw lastError || new Error('All CORS proxies failed');
-                        }
-                        
-                        // Extract title from the HTML
-                        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-                        const title = titleMatch ? titleMatch[1].trim() : 'Wayback Machine Archive';
-                        
-                        console.log('✅ Wayback content fetched:', html.length, 'chars');
-                        
-                        // Process the content
-                        await smartArchive(html, 'web.archive.org', title, waybackUrl);
-                        showNotification('✅ Wayback Machine content archived!', 3000);
-                        return;
-                    } catch (e) {
-                        console.error('❌ Error fetching Wayback content:', e);
-                        // Fallback: put URL in input box for manual extraction
-                        const sourceUrlInput = document.getElementById('sourceUrlInput');
-                        if (sourceUrlInput) {
-                            sourceUrlInput.value = waybackUrl;
-                            showNotification('⚠️ Auto-fetch failed. Click GET ARCHIVE to try again.', 5000);
-                        }
-                        return;
+                        }, 500);
                     }
+                    return;
                 }
                 
                 // Mobile Bookmarklet mode: ?url= parameter with page URL
