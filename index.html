@@ -17543,10 +17543,14 @@ try {
                         
                         // Auto-trigger extraction after a short delay
                         setTimeout(() => {
-                            const archiveBtn = document.getElementById('archiveBtn');
-                            if (archiveBtn) {
-                                console.log('🚀 Auto-triggering GET ARCHIVE for Wayback URL');
-                                archiveBtn.click();
+                            // Call extractFromUrl directly instead of clicking button
+                            console.log('🚀 Auto-triggering extraction for Wayback URL');
+                            if (typeof extractFromUrl === 'function') {
+                                extractFromUrl();
+                            } else {
+                                // Fallback: try clicking the button
+                                const btn = document.getElementById('getArchiveButton');
+                                if (btn) btn.click();
                             }
                         }, 500);
                     }
