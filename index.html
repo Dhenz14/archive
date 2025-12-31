@@ -17524,7 +17524,7 @@ try {
                 const params = new URLSearchParams(search);
                 
                 // Wayback Machine redirect mode: ?wayback=<encoded_wayback_url>
-                // This reuses the existing URL extraction flow which already has CORS proxy support
+                // Direct extraction via CORS proxies - 100% client-side
                 const waybackUrl = params.get('wayback');
                 if (waybackUrl) {
                     console.log('🏛️ Wayback Machine URL detected:', waybackUrl);
@@ -17534,25 +17534,37 @@ try {
                         window.history.replaceState({}, '', window.location.pathname);
                     }
                     
-                    // Put URL in input box and auto-trigger extraction
-                    // This reuses the existing extractFromUrl() which has robust CORS proxy support
-                    const sourceUrlInput = document.getElementById('sourceUrlInput');
-                    if (sourceUrlInput) {
-                        sourceUrlInput.value = waybackUrl;
-                        showNotification('🏛️ Wayback Machine URL loaded! Extracting...', 3000);
+                    // Direct extraction via ContentExtractor (CORS proxy cascade)
+                    showNotification('🏛️ Extracting Wayback Machine content...', 5000);
+                    showLoadingModal('Fetching archived content from Wayback Machine...');
+                    
+                    try {
+                        const extractor = new ContentExtractor();
+                        const extractResult = await extractor.extract(waybackUrl, (status) => {
+                            showLoadingModal(status);
+                        });
                         
-                        // Auto-trigger extraction after a short delay
-                        setTimeout(() => {
-                            // Call extractFromUrl directly instead of clicking button
-                            console.log('🚀 Auto-triggering extraction for Wayback URL');
-                            if (typeof extractFromUrl === 'function') {
-                                extractFromUrl();
-                            } else {
-                                // Fallback: try clicking the button
-                                const btn = document.getElementById('getArchiveButton');
-                                if (btn) btn.click();
-                            }
-                        }, 500);
+                        if (extractResult && extractResult.content) {
+                            console.log('✅ Wayback content extracted successfully');
+                            closeModal();
+                            
+                            // Process via smartArchive just like bookmarklet
+                            await smartArchive(
+                                extractResult.content, 
+                                'web.archive.org', 
+                                extractResult.title || 'Archived Page',
+                                waybackUrl
+                            );
+                        } else {
+                            closeModal();
+                            showNotification('❌ Could not extract Wayback content. Try the bookmarklet on the Wayback page.', 5000);
+                        }
+                    } catch (e) {
+                        console.error('❌ Wayback extraction error:', e);
+                        closeModal();
+                        if (e.message !== 'BOOKMARKLET_OFFERED') {
+                            showNotification('❌ Extraction failed: ' + e.message, 5000);
+                        }
                     }
                     return;
                 }
