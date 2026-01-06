@@ -6504,6 +6504,7 @@ if (typeof module === "object") {
             /**
              * 🎬 YouTube subtitle extraction
              * Extracts video transcripts from YouTube captions/subtitles
+             * Uses YouTube Innertube API for reliable caption access
              * Works 100% client-side using CORS proxies
              */
             async processYouTubeUrl(url, videoId) {
@@ -6511,23 +6512,41 @@ if (typeof module === "object") {
                 const progress = this.progressCallback;
                 
                 try {
-                    // Step 1: Fetch YouTube page to extract caption URLs
-                    if (progress) progress('Fetching video page...');
+                    // Step 1: Use YouTube Innertube API to get video info and captions
+                    if (progress) progress('Fetching video data...');
                     
-                    let pageHtml = null;
-                    const videoPageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                    const innertubeApiUrl = 'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+                    const innertubePayload = {
+                        context: {
+                            client: {
+                                clientName: 'WEB',
+                                clientVersion: '2.20240101.00.00',
+                                hl: 'en',
+                                gl: 'US'
+                            }
+                        },
+                        videoId: videoId
+                    };
                     
-                    // Try CORS proxies to fetch the YouTube page
+                    let videoData = null;
+                    
+                    // Try CORS proxies to access Innertube API
                     for (let i = 0; i < CORS_PROXIES.length; i++) {
                         try {
-                            const proxyUrl = CORS_PROXIES[i] + encodeURIComponent(videoPageUrl);
-                            console.log(`  📡 Trying CORS proxy ${i + 1}/${CORS_PROXIES.length}...`);
+                            const proxyUrl = CORS_PROXIES[i] + encodeURIComponent(innertubeApiUrl);
+                            console.log(`  📡 Trying Innertube API via proxy ${i + 1}/${CORS_PROXIES.length}...`);
                             if (progress) progress(`Trying proxy ${i + 1}/${CORS_PROXIES.length}...`);
                             
-                            const response = await fetch(proxyUrl, { signal: this.abortSignal });
+                            const response = await fetch(proxyUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(innertubePayload),
+                                signal: this.abortSignal
+                            });
+                            
                             if (response.ok) {
-                                pageHtml = await response.text();
-                                console.log(`  ✅ Fetched YouTube page: ${pageHtml.length} characters`);
+                                videoData = await response.json();
+                                console.log(`  ✅ Got Innertube response`);
                                 break;
                             }
                         } catch (e) {
@@ -6535,65 +6554,79 @@ if (typeof module === "object") {
                         }
                     }
                     
-                    if (!pageHtml) {
-                        throw new Error('Could not fetch YouTube page through CORS proxies');
+                    // Fallback: Try fetching page HTML with consent bypass
+                    if (!videoData) {
+                        console.log('  🔄 Innertube failed, trying page scrape with consent bypass...');
+                        if (progress) progress('Trying alternate method...');
+                        
+                        const videoPageUrl = `https://www.youtube.com/watch?v=${videoId}&bpctr=9999999999&has_verified=1`;
+                        
+                        for (let i = 0; i < CORS_PROXIES.length; i++) {
+                            try {
+                                const proxyUrl = CORS_PROXIES[i] + encodeURIComponent(videoPageUrl);
+                                const response = await fetch(proxyUrl, { signal: this.abortSignal });
+                                
+                                if (response.ok) {
+                                    const pageHtml = await response.text();
+                                    
+                                    // Try to extract player response from page
+                                    const playerMatch = pageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+                                    if (playerMatch) {
+                                        try {
+                                            videoData = JSON.parse(playerMatch[1]);
+                                            console.log(`  ✅ Extracted player data from page`);
+                                            break;
+                                        } catch (e) {
+                                            console.warn(`  ⚠️ Could not parse player data`);
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`  ⚠️ Page fetch failed:`, e.message);
+                            }
+                        }
+                    }
+                    
+                    if (!videoData) {
+                        throw new Error('Could not fetch YouTube video data');
                     }
                     
                     // Step 2: Extract video title
-                    const titleMatch = pageHtml.match(/<title>([^<]+)<\/title>/);
-                    let videoTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : `YouTube Video ${videoId}`;
+                    const videoTitle = videoData.videoDetails?.title || `YouTube Video ${videoId}`;
                     console.log(`  📺 Video title: ${videoTitle}`);
                     
-                    // Step 3: Extract caption tracks from page
+                    // Step 3: Get caption tracks
                     if (progress) progress('Extracting subtitle URLs...');
-                    const captionMatch = pageHtml.match(/"captionTracks":(\[.*?\])/);
+                    const captions = videoData.captions?.playerCaptionsTracklistRenderer?.captionTracks;
                     
-                    if (!captionMatch) {
-                        // Check if video has no captions
-                        if (pageHtml.includes('"captions":{}') || !pageHtml.includes('captionTracks')) {
-                            throw new Error('This video has no captions/subtitles available');
-                        }
-                        throw new Error('Could not extract caption data from video page');
+                    if (!captions || captions.length === 0) {
+                        throw new Error('This video has no captions/subtitles available');
                     }
                     
-                    let captionTracks;
-                    try {
-                        // Clean up JSON - handle escaped characters
-                        const cleanJson = captionMatch[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
-                        captionTracks = JSON.parse(cleanJson);
-                    } catch (e) {
-                        throw new Error('Could not parse caption track data');
-                    }
+                    console.log(`  🎯 Found ${captions.length} caption tracks`);
                     
-                    console.log(`  🎯 Found ${captionTracks.length} caption tracks`);
-                    
-                    // Step 4: Find English captions (prefer manual over auto-generated)
+                    // Step 4: Find best caption track (prefer English, then manual over auto)
                     let captionUrl = null;
                     let captionLang = null;
                     
-                    // Priority: English manual > English auto > any manual > any auto
-                    const priorities = [
-                        { lang: 'en', kind: '' },       // English manual
-                        { lang: 'en-US', kind: '' },
-                        { lang: 'en-GB', kind: '' },
-                        { lang: 'en', kind: 'asr' },    // English auto
-                        { lang: null, kind: '' },       // Any manual
-                        { lang: null, kind: 'asr' }     // Any auto
-                    ];
-                    
-                    for (const prio of priorities) {
-                        const track = captionTracks.find(t => {
-                            const matchesLang = prio.lang === null || t.languageCode === prio.lang;
-                            const matchesKind = prio.kind === '' ? (!t.kind || t.kind !== 'asr') : t.kind === 'asr';
-                            return matchesLang && matchesKind && t.baseUrl;
+                    // Priority order
+                    const findCaption = (langPref, kindPref) => {
+                        return captions.find(c => {
+                            const lang = c.languageCode || '';
+                            const isAuto = c.kind === 'asr';
+                            const matchLang = langPref === null || lang.startsWith(langPref);
+                            const matchKind = kindPref === 'manual' ? !isAuto : (kindPref === 'auto' ? isAuto : true);
+                            return matchLang && matchKind && c.baseUrl;
                         });
-                        
-                        if (track) {
-                            captionUrl = track.baseUrl.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
-                            captionLang = track.languageCode;
-                            console.log(`  ✅ Selected caption track: ${track.languageCode} (${track.kind || 'manual'})`);
-                            break;
-                        }
+                    };
+                    
+                    const track = findCaption('en', 'manual') || findCaption('en', 'auto') || 
+                                  findCaption(null, 'manual') || findCaption(null, 'auto');
+                    
+                    if (track) {
+                        captionUrl = track.baseUrl;
+                        captionLang = track.languageCode;
+                        console.log(`  ✅ Selected: ${track.name?.simpleText || track.languageCode} (${track.kind === 'asr' ? 'auto' : 'manual'})`);
                     }
                     
                     if (!captionUrl) {
@@ -6662,7 +6695,7 @@ if (typeof module === "object") {
             
             /**
              * Clean YouTube subtitle content (VTT/XML format)
-             * Removes timestamps, duplicates, and formatting
+             * Removes timestamps, duplicates, and formats into natural paragraphs
              */
             cleanYouTubeSubtitles(content) {
                 let lines = [];
@@ -6704,7 +6737,7 @@ if (typeof module === "object") {
                     }
                 }
                 
-                // Remove consecutive duplicates and join
+                // Remove consecutive duplicates
                 const uniqueLines = [];
                 for (const line of lines) {
                     if (uniqueLines.length === 0 || uniqueLines[uniqueLines.length - 1] !== line) {
@@ -6712,11 +6745,29 @@ if (typeof module === "object") {
                     }
                 }
                 
-                // Group into paragraphs (every ~5 lines)
+                // Join all text and split into natural paragraphs based on sentence endings
+                const fullText = uniqueLines.join(' ').replace(/\s+/g, ' ').trim();
+                
+                // Split on sentence boundaries (. ! ?) followed by space and capital letter
+                const sentences = fullText.split(/(?<=[.!?])\s+(?=[A-Z])/);
+                
+                // Group sentences into paragraphs (~3-4 sentences each for readability)
                 const paragraphs = [];
-                for (let i = 0; i < uniqueLines.length; i += 5) {
-                    const chunk = uniqueLines.slice(i, i + 5).join(' ');
-                    paragraphs.push(chunk);
+                let currentParagraph = [];
+                
+                for (const sentence of sentences) {
+                    currentParagraph.push(sentence);
+                    // Start new paragraph after 3-4 sentences or if sentence is long
+                    if (currentParagraph.length >= 4 || 
+                        currentParagraph.join(' ').length > 500) {
+                        paragraphs.push(currentParagraph.join(' '));
+                        currentParagraph = [];
+                    }
+                }
+                
+                // Add remaining sentences
+                if (currentParagraph.length > 0) {
+                    paragraphs.push(currentParagraph.join(' '));
                 }
                 
                 return paragraphs.join('\n\n');
