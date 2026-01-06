@@ -17667,21 +17667,18 @@ try {
                                     extraction_method: 'wayback-id-modifier'
                                 };
                                 
-                                // Process the archived HTML with Readability
-                                const result = await window.archiveProcessor.extractWithReadability(
-                                    html, 
-                                    '', 
-                                    originalUrl, 
-                                    'wayback-archive',
-                                    null,
-                                    provenance
-                                );
-                                
-                                // Show the preview
-                                if (result) {
-                                    showNotification('✅ Archived content from ' + waybackMeta.snapshotDate + ' extracted!', 3000);
-                                    showPreview(result.content, result.title, originalUrl);
+                                // Put the HTML in the textarea for processing
+                                const textarea = document.getElementById('contentInput');
+                                if (textarea) {
+                                    textarea.value = html;
                                 }
+                                
+                                // Store provenance for the archive record
+                                window._waybackProvenance = provenance;
+                                
+                                // Process the content normally (this will extract with Readability and show preview)
+                                showNotification('✅ Archived content from ' + waybackMeta.snapshotDate + ' loaded!', 3000);
+                                await processContent(true); // Skip smart archive - this IS the archived content
                                 
                             } catch (error) {
                                 console.error('❌ Wayback extraction failed:', error);
