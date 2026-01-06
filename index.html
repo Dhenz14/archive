@@ -10219,14 +10219,14 @@ if (typeof module === "object") {
                         const textContent = doc.body?.textContent || '';
                         
                         if (textContent.length > 100) {
-                            // Generate SHA-256 hash of content
-                            const hashes = await window.ArcHiveHiveLookup.generateContentHash(textContent);
+                            // Generate SHA-256 hash of content using processor's hashString method
+                            const hashes = await processor.hashString(textContent);
                             
                             // Compute hash prefix tag (ARCHIVEHASH0-F) - narrows to 1/16th of posts
-                            const hashPrefixTag = ContentExtractor.computeHashPrefixTag(hashes.sha256);
+                            const hashPrefixTag = processor.computeHashPrefixTag(hashes.sha256);
                             
                             // Compute domain tag (ARCHIVEWIKI, ARCHIVEX, etc.)
-                            const domainTag = ContentExtractor.computeDomainTag(url);
+                            const domainTag = processor.computeDomainTag(url);
                             
                             // Use both universal tag + hash prefix for precise lookup
                             tags = ['archivedcontenthaf', hashPrefixTag];
