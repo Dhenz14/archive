@@ -2369,16 +2369,15 @@ Examples:
                     <!-- Keychain Detection Warning -->
                     <div id="keychainWarning" style="display: none; margin-bottom: 12px;"></div>
                     
-                    <!-- Rewards Options Dropdown -->
-                    <div id="rewardsOptionContainer" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; color: rgba(255,255,255,0.9); font-size: 14px;">
-                        <label for="rewardsOption" style="font-weight: 500;">Rewards:</label>
-                        <select id="rewardsOption" style="padding: 8px 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.95); color: #334155; font-size: 14px; cursor: pointer; min-width: 140px;">
-                            <option value="normal">Normal</option>
-                            <option value="decline">Decline</option>
-                            <option value="burn">Burn (@null)</option>
-                        </select>
-                        <span title="Normal: Receive post rewards as usual&#10;Decline: No rewards generated&#10;Burn: Rewards sent to @null (deflationary)" style="color: rgba(255,255,255,0.6); cursor: help; font-size: 16px;">ⓘ</span>
+                    <!-- Rewards Auto-Burn Notice (forced for all archives to prevent downvotes) -->
+                    <div id="rewardsOptionContainer" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; color: rgba(255,255,255,0.9); font-size: 13px;">
+                        <span style="background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+                            🔥 Rewards: <strong>Burned (@null)</strong>
+                        </span>
+                        <span title="All archive rewards are automatically burned to @null. This prevents downvotes and ensures posts remain indexed on the blockchain." style="color: rgba(255,255,255,0.6); cursor: help; font-size: 16px;">ⓘ</span>
                     </div>
+                    <!-- Hidden field to maintain compatibility with existing code -->
+                    <input type="hidden" id="rewardsOption" value="burn">
                     
                     <button id="blockchainBtn" onclick="postToHive()" aria-label="Publish to blockchain" style="
                         width: 100%;
