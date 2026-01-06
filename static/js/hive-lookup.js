@@ -220,40 +220,82 @@ async function fetchHiveAPIWithFailover(params, maxRetries = 2, progressCallback
 }
 
 /**
- * Search Hive blockchain by tags
+ * Search Hive blockchain by tags with pagination
  * Uses primary tag + filters for exact matches on all tags
+ * Paginates through multiple pages to find older archives
  * 
  * @param {Array<string>} tags - Array of tags to search (first tag is primary)
  * @param {Function} progressCallback - Optional callback for progress updates: (nodeIndex, totalNodes, nodeName, retry) => void
+ * @param {number} maxPages - Maximum pages to fetch (default: 5 = 100 posts max)
  * @returns {Promise<Array>} - Array of matching Hive posts
  */
-async function searchHiveByTags(tags, progressCallback = null) {
+async function searchHiveByTags(tags, progressCallback = null, maxPages = 5) {
     console.log('📡 Searching Hive with tags:', tags);
     
     // CRITICAL: Hive API searches by PRIMARY tag (first tag in post's tag list)
     // ALL archives use "archivedcontenthaf" as the primary tag (position 0)
     const primaryTag = 'archivedcontenthaf';
     
-    const params = {
-        jsonrpc: '2.0',
-        method: 'bridge.get_ranked_posts',
-        params: {
-            sort: 'created',
-            tag: primaryTag,
-            observer: '',
-            limit: 20  // Hive API max is 20, not 100
-        },
-        id: 1
-    };
-    
-    console.log('🔍 Request payload:', JSON.stringify(params));
+    const allPosts = [];
+    let startAuthor = null;
+    let startPermlink = null;
     
     try {
-        const posts = await fetchHiveAPIWithFailover(params, 2, progressCallback);
-        console.log(`✅ Found ${posts.length} posts with primary tag: ${primaryTag}`);
+        for (let page = 0; page < maxPages; page++) {
+            const params = {
+                jsonrpc: '2.0',
+                method: 'bridge.get_ranked_posts',
+                params: {
+                    sort: 'created',
+                    tag: primaryTag,
+                    observer: '',
+                    limit: 20  // Hive API max is 20
+                },
+                id: 1
+            };
+            
+            // Add pagination parameters for subsequent pages
+            if (startAuthor && startPermlink) {
+                params.params.start_author = startAuthor;
+                params.params.start_permlink = startPermlink;
+            }
+            
+            console.log(`🔍 Fetching page ${page + 1}/${maxPages}...`);
+            
+            const posts = await fetchHiveAPIWithFailover(params, 2, progressCallback);
+            
+            if (posts.length === 0) {
+                console.log(`📭 No more posts found at page ${page + 1}`);
+                break;
+            }
+            
+            // Skip the first post on subsequent pages (it's the last post from previous page)
+            const newPosts = page === 0 ? posts : posts.slice(1);
+            
+            if (newPosts.length === 0) {
+                console.log(`📭 No new posts on page ${page + 1}`);
+                break;
+            }
+            
+            allPosts.push(...newPosts);
+            console.log(`✅ Page ${page + 1}: Found ${newPosts.length} posts (total: ${allPosts.length})`);
+            
+            // Set pagination cursor for next page
+            const lastPost = posts[posts.length - 1];
+            startAuthor = lastPost.author;
+            startPermlink = lastPost.permlink;
+            
+            // If we got fewer than 20 posts, we've reached the end
+            if (posts.length < 20) {
+                console.log(`📭 Reached end of archives at page ${page + 1}`);
+                break;
+            }
+        }
+        
+        console.log(`✅ Found ${allPosts.length} total posts with primary tag: ${primaryTag}`);
         
         // If we have smart tags (5 tags), filter to match all of them
-        const filtered = posts.filter(post => {
+        const filtered = allPosts.filter(post => {
             // Parse json_metadata if it's a string (Hive API returns it as string)
             let metadata = post.json_metadata;
             if (typeof metadata === 'string') {
