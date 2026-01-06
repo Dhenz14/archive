@@ -6668,13 +6668,9 @@ if (typeof module === "object") {
                     const wordCount = transcript.split(/\s+/).length;
                     console.log(`  ✅ Extracted transcript: ${wordCount} words`);
                     
-                    // Step 7: Build archive data
-                    const htmlContent = `<h1>${this.escapeHtml(videoTitle)}</h1>
-                        <p><em>YouTube Video Transcript</em></p>
-                        <p><strong>Source:</strong> <a href="${url}">${url}</a></p>
-                        <p><strong>Language:</strong> ${captionLang || 'Unknown'}</p>
-                        <hr>
-                        <div class="transcript">${transcript.split('\n\n').map(p => `<p>${this.escapeHtml(p)}</p>`).join('')}</div>`;
+                    // Step 7: Build clean archive data (no Readability needed - content is already clean)
+                    const paragraphs = transcript.split('\n\n').filter(p => p.trim());
+                    const formattedContent = paragraphs.map(p => p.trim()).join('\n\n');
                     
                     // Build provenance metadata
                     const provenance = {
@@ -6685,7 +6681,22 @@ if (typeof module === "object") {
                         api_timestamp: new Date().toISOString()
                     };
                     
-                    return await this.extractWithReadability(htmlContent, videoTitle, url, 'youtube-captions', null, provenance);
+                    // Generate hashes directly (skip Readability - transcript is already clean text)
+                    const contentHash = await this.hashContent(formattedContent);
+                    const titleHash = await this.hashContent(videoTitle);
+                    const integrityHash = await this.hashContent(videoTitle + formattedContent);
+                    
+                    return {
+                        title: videoTitle,
+                        content: formattedContent,
+                        url: url,
+                        extractionMethod: 'youtube-captions',
+                        contentHash,
+                        titleHash,
+                        integrityHash,
+                        provenance,
+                        timestamp: new Date().toISOString()
+                    };
                     
                 } catch (error) {
                     console.error('❌ YouTube extraction failed:', error);
