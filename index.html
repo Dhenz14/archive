@@ -6752,6 +6752,15 @@ if (typeof module === "object") {
                         throw new Error('Could not fetch subtitle content');
                     }
                     
+                    // Validate we got subtitle data, not HTML page content
+                    if (subtitleContent.includes('<!DOCTYPE html') || 
+                        subtitleContent.includes('<html') ||
+                        subtitleContent.includes('ytInitialData') ||
+                        subtitleContent.includes('ytInitialPlayerResponse')) {
+                        console.warn('  ⚠️ Received HTML page instead of subtitle data');
+                        throw new Error('Caption URL returned page content instead of subtitles');
+                    }
+                    
                     // Step 6: Clean and format subtitles
                     if (progress) progress('Processing transcript...');
                     const transcript = this.cleanYouTubeSubtitles(subtitleContent);
@@ -6816,9 +6825,10 @@ if (typeof module === "object") {
                             .replace(/&gt;/g, '>')
                             .replace(/&quot;/g, '"')
                             .replace(/&#39;/g, "'")
+                            .replace(/&#(\d+);/g, (m, code) => String.fromCharCode(code))
                             .replace(/\n/g, ' ')
                             .trim();
-                        if (text) lines.push(text);
+                        if (text && text.length > 0) lines.push(text);
                     }
                 }
                 // Handle VTT/SRT format
@@ -6843,6 +6853,26 @@ if (typeof module === "object") {
                     }
                 }
                 
+                // Filter out YouTube UI artifacts that might slip through
+                const uiPatterns = [
+                    /^Comments?$/i,
+                    /^\d+\.?\d*[KMB]?$/i,  // "2.4M", "10K", etc.
+                    /^In this video$/i,
+                    /^Subscribe$/i,
+                    /^Share$/i,
+                    /^Save$/i,
+                    /^Download$/i,
+                    /^More$/i,
+                    /^Show more$/i,
+                    /^Show less$/i,
+                    /^Reply$/i,
+                    /^Like$/i
+                ];
+                
+                lines = lines.filter(line => {
+                    return !uiPatterns.some(pattern => pattern.test(line.trim()));
+                });
+                
                 // Remove consecutive duplicates
                 const uniqueLines = [];
                 for (const line of lines) {
@@ -6851,8 +6881,10 @@ if (typeof module === "object") {
                     }
                 }
                 
-                // Join all text and split into natural paragraphs based on sentence endings
-                const fullText = uniqueLines.join(' ').replace(/\s+/g, ' ').trim();
+                // Join all text and normalize whitespace
+                const fullText = uniqueLines.join(' ')
+                    .replace(/\s+/g, ' ')  // Collapse multiple spaces
+                    .trim();
                 
                 // Split on sentence boundaries (. ! ?) followed by space and capital letter
                 const sentences = fullText.split(/(?<=[.!?])\s+(?=[A-Z])/);
@@ -6862,7 +6894,10 @@ if (typeof module === "object") {
                 let currentParagraph = [];
                 
                 for (const sentence of sentences) {
-                    currentParagraph.push(sentence);
+                    const trimmedSentence = sentence.trim();
+                    if (!trimmedSentence) continue;
+                    
+                    currentParagraph.push(trimmedSentence);
                     // Start new paragraph after 3-4 sentences or if sentence is long
                     if (currentParagraph.length >= 4 || 
                         currentParagraph.join(' ').length > 500) {
@@ -6876,6 +6911,7 @@ if (typeof module === "object") {
                     paragraphs.push(currentParagraph.join(' '));
                 }
                 
+                // Join with single blank line between paragraphs (no excess whitespace)
                 return paragraphs.join('\n\n');
             }
             
