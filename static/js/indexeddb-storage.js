@@ -48,6 +48,14 @@ const QUOTA_THRESHOLDS = {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DEBUG MODE CONFIGURATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const IDB_DEBUG = false;
+const idbDebugLog = (...args) => { if (IDB_DEBUG) console.log(...args); };
+const idbDebugWarn = (...args) => { if (IDB_DEBUG) console.warn(...args); };
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DATABASE INITIALIZATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -59,7 +67,7 @@ const QUOTA_THRESHOLDS = {
  */
 async function initDatabase() {
     return new Promise((resolve, reject) => {
-        console.log(`🗄️  Initializing IndexedDB: ${DB_NAME} v${DB_VERSION}`);
+        idbDebugLog(`🗄️  Initializing IndexedDB: ${DB_NAME} v${DB_VERSION}`);
         
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         
@@ -70,14 +78,14 @@ async function initDatabase() {
         
         request.onsuccess = () => {
             const db = request.result;
-            console.log(`✅ IndexedDB opened successfully`);
-            console.log(`   Stores: ${Array.from(db.objectStoreNames).join(', ')}`);
+            idbDebugLog(`✅ IndexedDB opened successfully`);
+            idbDebugLog(`   Stores: ${Array.from(db.objectStoreNames).join(', ')}`);
             resolve(db);
         };
         
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            console.log(`🔧 Upgrading IndexedDB schema (v${event.oldVersion} → v${event.newVersion})`);
+            idbDebugLog(`🔧 Upgrading IndexedDB schema (v${event.oldVersion} → v${event.newVersion})`);
             
             // Store 1: Content Parts
             // Stores the actual content for each part of a multi-part series
@@ -96,7 +104,7 @@ async function initDatabase() {
                 // Compound index for series + part number
                 contentStore.createIndex('series_part', ['series_id', 'part_number'], { unique: true });
                 
-                console.log(`   ✅ Created store: ${STORES.CONTENT_PARTS}`);
+                idbDebugLog(`   ✅ Created store: ${STORES.CONTENT_PARTS}`);
             }
             
             // Store 2: Pipeline State
@@ -112,7 +120,7 @@ async function initDatabase() {
                 // Index by updated_at for cleanup
                 stateStore.createIndex('updated_at', 'updated_at', { unique: false });
                 
-                console.log(`   ✅ Created store: ${STORES.PIPELINE_STATE}`);
+                idbDebugLog(`   ✅ Created store: ${STORES.PIPELINE_STATE}`);
             }
             
             // Store 3: Cleanup Log
@@ -125,10 +133,10 @@ async function initDatabase() {
                 
                 cleanupStore.createIndex('timestamp', 'timestamp', { unique: false });
                 
-                console.log(`   ✅ Created store: ${STORES.CLEANUP_LOG}`);
+                idbDebugLog(`   ✅ Created store: ${STORES.CLEANUP_LOG}`);
             }
             
-            console.log('🎉 Database schema created successfully');
+            idbDebugLog('🎉 Database schema created successfully');
         };
     });
 }
@@ -165,7 +173,7 @@ async function saveContentParts(seriesId, parts, metadata = {}) {
     const tx = db.transaction(STORES.CONTENT_PARTS, 'readwrite');
     const store = tx.objectStore(STORES.CONTENT_PARTS);
     
-    console.log(`💾 Saving ${parts.length} content parts for series: ${seriesId}`);
+    idbDebugLog(`💾 Saving ${parts.length} content parts for series: ${seriesId}`);
     
     // Calculate expiry based on retention policy
     const expiresAt = new Date();
@@ -197,8 +205,8 @@ async function saveContentParts(seriesId, parts, metadata = {}) {
     await Promise.all(savePromises);
     await new Promise((resolve, reject) => {
         tx.oncomplete = () => {
-            console.log(`   ✅ Saved ${parts.length} parts successfully`);
-            console.log(`   📅 Expires: ${expiresAt.toLocaleDateString()}`);
+            idbDebugLog(`   ✅ Saved ${parts.length} parts successfully`);
+            idbDebugLog(`   📅 Expires: ${expiresAt.toLocaleDateString()}`);
             resolve();
         };
         tx.onerror = () => reject(tx.error);
@@ -221,7 +229,7 @@ async function loadContentParts(seriesId) {
     const store = tx.objectStore(STORES.CONTENT_PARTS);
     const index = store.index('series_id');
     
-    console.log(`📂 Loading content parts for series: ${seriesId}`);
+    idbDebugLog(`📂 Loading content parts for series: ${seriesId}`);
     
     return new Promise((resolve, reject) => {
         const request = index.getAll(seriesId);
@@ -230,7 +238,7 @@ async function loadContentParts(seriesId) {
             const parts = request.result;
             
             if (parts.length === 0) {
-                console.log(`   ⚠️  No content parts found`);
+                idbDebugLog(`   ⚠️  No content parts found`);
                 resolve([]);
                 return;
             }
@@ -238,8 +246,8 @@ async function loadContentParts(seriesId) {
             // Sort by part_number
             parts.sort((a, b) => a.part_number - b.part_number);
             
-            console.log(`   ✅ Loaded ${parts.length} parts`);
-            console.log(`   📊 Total size: ${(parts.reduce((sum, p) => sum + (p.byte_size || 0), 0) / 1024).toFixed(1)} KB`);
+            idbDebugLog(`   ✅ Loaded ${parts.length} parts`);
+            idbDebugLog(`   📊 Total size: ${(parts.reduce((sum, p) => sum + (p.byte_size || 0), 0) / 1024).toFixed(1)} KB`);
             
             resolve(parts);
         };
@@ -264,7 +272,7 @@ async function deleteContentParts(seriesId) {
     const store = tx.objectStore(STORES.CONTENT_PARTS);
     const index = store.index('series_id');
     
-    console.log(`🗑️  Deleting content parts for series: ${seriesId}`);
+    idbDebugLog(`🗑️  Deleting content parts for series: ${seriesId}`);
     
     return new Promise((resolve, reject) => {
         const request = index.getAllKeys(seriesId);
@@ -273,7 +281,7 @@ async function deleteContentParts(seriesId) {
             const keys = request.result;
             
             if (keys.length === 0) {
-                console.log(`   ℹ️  No content parts to delete`);
+                idbDebugLog(`   ℹ️  No content parts to delete`);
                 resolve(0);
                 return;
             }
@@ -289,7 +297,7 @@ async function deleteContentParts(seriesId) {
             
             Promise.all(deletePromises)
                 .then(() => {
-                    console.log(`   ✅ Deleted ${keys.length} parts`);
+                    idbDebugLog(`   ✅ Deleted ${keys.length} parts`);
                     resolve(keys.length);
                 })
                 .catch(reject);
@@ -328,7 +336,7 @@ async function savePipelineState(seriesId, state) {
         const request = store.put(enhancedState);
         
         request.onsuccess = () => {
-            console.log(`💾 Pipeline state saved to IndexedDB: ${seriesId}`);
+            idbDebugLog(`💾 Pipeline state saved to IndexedDB: ${seriesId}`);
             resolve();
         };
         
@@ -357,11 +365,11 @@ async function loadPipelineState(seriesId) {
             const state = request.result;
             
             if (state) {
-                console.log(`📂 Pipeline state loaded from IndexedDB: ${seriesId}`);
-                console.log(`   Status: ${state.status}`);
-                console.log(`   Progress: ${state.currentPart}/${state.manifest.total_parts}`);
+                idbDebugLog(`📂 Pipeline state loaded from IndexedDB: ${seriesId}`);
+                idbDebugLog(`   Status: ${state.status}`);
+                idbDebugLog(`   Progress: ${state.currentPart}/${state.manifest.total_parts}`);
             } else {
-                console.log(`ℹ️  No pipeline state found for: ${seriesId}`);
+                idbDebugLog(`ℹ️  No pipeline state found for: ${seriesId}`);
             }
             
             resolve(state || null);
@@ -386,7 +394,7 @@ async function deletePipelineState(seriesId) {
         const request = store.delete(seriesId);
         
         request.onsuccess = () => {
-            console.log(`🗑️  Pipeline state deleted: ${seriesId}`);
+            idbDebugLog(`🗑️  Pipeline state deleted: ${seriesId}`);
             resolve();
         };
         
@@ -418,7 +426,7 @@ async function getAllIncompletePipelines() {
                 state.status === 'failed'
             );
             
-            console.log(`📊 Found ${incomplete.length} incomplete pipeline(s)`);
+            idbDebugLog(`📊 Found ${incomplete.length} incomplete pipeline(s)`);
             
             resolve(incomplete);
         };
@@ -438,7 +446,7 @@ async function getAllIncompletePipelines() {
  */
 async function checkStorageQuota() {
     if (!navigator.storage || !navigator.storage.estimate) {
-        console.warn('⚠️  Storage API not available - cannot check quota');
+        idbDebugWarn('⚠️  Storage API not available - cannot check quota');
         return null;
     }
     
@@ -447,7 +455,7 @@ async function checkStorageQuota() {
     const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2);
     const usagePercent = (estimate.usage / estimate.quota);
     
-    console.log(`💾 Storage: ${usedMB} MB / ${quotaMB} MB (${(usagePercent * 100).toFixed(1)}%)`);
+    idbDebugLog(`💾 Storage: ${usedMB} MB / ${quotaMB} MB (${(usagePercent * 100).toFixed(1)}%)`);
     
     // Trigger cleanup if approaching quota limits
     if (usagePercent >= QUOTA_THRESHOLDS.CRITICAL) {
@@ -473,7 +481,7 @@ async function checkStorageQuota() {
  * @returns {Promise<Object>} - Cleanup statistics
  */
 async function cleanupExpiredContent(emergency = false) {
-    console.log(`🧹 Starting ${emergency ? 'EMERGENCY' : 'routine'} cleanup...`);
+    idbDebugLog(`🧹 Starting ${emergency ? 'EMERGENCY' : 'routine'} cleanup...`);
     
     const db = await getDB();
     const now = new Date();
@@ -552,10 +560,10 @@ async function cleanupExpiredContent(emergency = false) {
     // Log cleanup operation
     await logCleanup(stats);
     
-    console.log(`✅ Cleanup complete:`);
-    console.log(`   Content parts deleted: ${stats.content_parts_deleted}`);
-    console.log(`   Pipeline states deleted: ${stats.pipeline_states_deleted}`);
-    console.log(`   Storage freed: ${(stats.bytes_freed / 1024).toFixed(1)} KB`);
+    idbDebugLog(`✅ Cleanup complete:`);
+    idbDebugLog(`   Content parts deleted: ${stats.content_parts_deleted}`);
+    idbDebugLog(`   Pipeline states deleted: ${stats.pipeline_states_deleted}`);
+    idbDebugLog(`   Storage freed: ${(stats.bytes_freed / 1024).toFixed(1)} KB`);
     
     return stats;
 }
@@ -613,6 +621,6 @@ if (typeof window !== 'undefined') {
         QUOTA_THRESHOLDS
     };
     
-    console.log('✅ ArcHive IndexedDB Storage module loaded');
-    console.log('   Available as: window.ArcHiveStorage');
+    idbDebugLog('✅ ArcHive IndexedDB Storage module loaded');
+    idbDebugLog('   Available as: window.ArcHiveStorage');
 }
