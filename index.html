@@ -6800,22 +6800,29 @@ if (typeof module === "object") {
                         api_timestamp: new Date().toISOString()
                     };
                     
-                    // Generate hashes directly (skip Readability - transcript is already clean text)
-                    const contentHash = await this.hashContent(formattedContent);
-                    const titleHash = await this.hashContent(videoTitle);
-                    const integrityHash = await this.hashContent(videoTitle + formattedContent);
+                    // Generate hashes using the correct method
+                    const hashes = await this.generateHashes(formattedContent, videoTitle);
                     
-                    return {
+                    // Build archive data in standard format
+                    const archiveData = {
                         title: videoTitle,
                         content: formattedContent,
+                        source: url,
                         url: url,
+                        method: 'youtube-captions',
                         extractionMethod: 'youtube-captions',
-                        contentHash,
-                        titleHash,
-                        integrityHash,
-                        provenance,
+                        wordCount: wordCount,
+                        imageCount: 0,
+                        images: [],
+                        hashes: hashes,
+                        provenance: provenance,
                         timestamp: new Date().toISOString()
                     };
+                    
+                    // Save to history
+                    this.saveToHistory(archiveData);
+                    
+                    return archiveData;
                     
                 } catch (error) {
                     console.error('❌ YouTube extraction failed:', error);
