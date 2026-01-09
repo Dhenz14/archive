@@ -6564,10 +6564,17 @@ if (typeof module === "object") {
                         return result;
                     }
                     
-                    // No bookmarklet data - this means user pasted URL directly (Android Direct URL mode)
-                    // Show helpful message instead of trying broken CORS proxies
-                    console.log('🎬 YouTube URL without bookmarklet data - prompting for bookmarklet use');
-                    throw new Error('YouTube videos require the bookmarklet. Please use the ArcHive bookmarklet directly on the YouTube video page for best results.');
+                    // No bookmarklet data available - this is normal for first-time processing
+                    // The transcript should already be in processor.currentData from the postMessage handler
+                    if (this.currentData && this.currentData.type === 'youtube-transcript') {
+                        console.log('🎬 Using already-processed YouTube transcript');
+                        return this.currentData;
+                    }
+                    
+                    // If we get here, the bookmarklet didn't extract transcript (video may not have captions)
+                    // Show user-friendly message
+                    console.log('🎬 No YouTube transcript available - video may not have captions');
+                    throw new Error('This video may not have captions available. Try using the bookmarklet directly on the YouTube video page, or choose "Archive Video Info" to save the video metadata instead.');
                 }
                 
                 // Detect URL
