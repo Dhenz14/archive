@@ -18861,6 +18861,18 @@ try {
                                 const payload = event.data;
                                 debugLog('Payload received from', payload.source);
                                 
+                                // VERSION CHECK: Detect outdated bookmarklets
+                                const receivedVersion = payload.bookmarkletVersion;
+                                if (!receivedVersion) {
+                                    console.warn('⚠️ Outdated bookmarklet detected (no version)');
+                                    showBookmarkletUpdateWarning('Your ArcHive bookmark is outdated and may not work correctly.');
+                                } else if (receivedVersion !== window.CURRENT_BOOKMARKLET_VERSION) {
+                                    console.warn(`⚠️ Bookmarklet version mismatch: ${receivedVersion} → ${window.CURRENT_BOOKMARKLET_VERSION}`);
+                                    showBookmarkletUpdateWarning(`Your ArcHive bookmark (v${receivedVersion}) needs updating to v${window.CURRENT_BOOKMARKLET_VERSION}.`);
+                                } else {
+                                    debugLog(`✅ Bookmarklet version OK: v${receivedVersion}`);
+                                }
+                                
                                 // Remove listener
                                 window.removeEventListener('message', messageHandler);
                                 
