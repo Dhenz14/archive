@@ -1832,9 +1832,14 @@ class HivePostingPipeline {
      * @private
      */
     _generatePostPayload(partNumber, content) {
-        // Generate title with part indicator
         const baseTitle = this.manifest.title || 'Untitled';
-        const title = `${baseTitle} [Part ${partNumber}/${this.manifest.total_parts}]`;
+        const isRootPost = partNumber === 1;
+        
+        // FIX: Comments (Parts 2+) should have empty title per Hive standards
+        // Root post (Part 1) gets the full title
+        const title = isRootPost 
+            ? `${baseTitle} [Part ${partNumber}/${this.manifest.total_parts}]`
+            : ''; // Empty title for comment replies
         
         // Generate compact manifest for embedding
         const compactManifest = compactManifestForPost(this.manifest, partNumber);
@@ -1842,26 +1847,45 @@ class HivePostingPipeline {
         // Embed manifest in post body as HTML comment
         const bodyWithManifest = `${content}\n\n<!--ARCHIVE-MANIFEST:${compactManifest}-->`;
         
-        // Build json_metadata with COMPLETE manifest (deep-cloned to preserve up-to-date state)
-        // Deep clone the manifest to avoid stale data from mutations
-        const manifestSnapshot = JSON.parse(JSON.stringify(this.manifest));
+        // FIX: Minimize json_metadata for Parts 2+ to avoid size limits
+        // Part 1 gets full manifest, Parts 2+ get minimal reference data
+        let jsonMetadata;
         
-        const jsonMetadata = {
-            tags: this.manifest.tags || [],
-            app: 'archive/1.0',
-            arcMultiPart: {
-                // Spread the complete manifest snapshot (preserves all fields including mutated parts array)
-                ...manifestSnapshot,
-                // Overlay per-part identification fields (CRITICAL for reassembly)
-                current_part: partNumber,
-                part_number: partNumber // Legacy compatibility
-            }
-        };
+        if (isRootPost) {
+            // Part 1: Include full manifest (this is the primary lookup point)
+            const manifestSnapshot = JSON.parse(JSON.stringify(this.manifest));
+            jsonMetadata = {
+                tags: this.manifest.tags || [],
+                app: 'archive/1.0',
+                arcMultiPart: {
+                    ...manifestSnapshot,
+                    current_part: partNumber,
+                    part_number: partNumber
+                }
+            };
+        } else {
+            // Parts 2+: Minimal metadata to avoid size limits
+            // Full manifest is in Part 1 and body HTML comment
+            jsonMetadata = {
+                tags: this.manifest.tags || [],
+                app: 'archive/1.0',
+                arcMultiPart: {
+                    series_id: this.manifest.series_id,
+                    current_part: partNumber,
+                    part_number: partNumber,
+                    total_parts: this.manifest.total_parts,
+                    root_author: this.author,
+                    root_permlink: this.rootPermlink,
+                    title: baseTitle // Include title for context
+                }
+            };
+            mpDebugLog(`  📦 Using minimal metadata for Part ${partNumber} (${JSON.stringify(jsonMetadata).length} bytes)`);
+        }
         
         // THREADED REPLIES: Determine parent parameters based on part number
         let parentAuthor, parentPermlink;
         
-        if (partNumber === 1) {
+        if (isRootPost) {
             // Part 1: Root post (parent_author='', parent_permlink=firstTag)
             parentAuthor = '';
             parentPermlink = this.manifest.tags?.[0] || 'archive';
@@ -1885,7 +1909,7 @@ class HivePostingPipeline {
             title: title,
             body: bodyWithManifest,
             json_metadata: jsonMetadata,
-            permlink: `${this.manifest.series_id.substring(0, 8)}-part-${partNumber}`, // Suggested permlink
+            permlink: `${this.manifest.series_id.substring(0, 8)}-part-${partNumber}`,
             parent_permlink: parentPermlink
         };
     }
