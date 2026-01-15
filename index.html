@@ -4996,8 +4996,27 @@ if (typeof module === "object") {
         // DEBUG MODE - shared across all script sections via window object
         window.DEBUG_MODE = false; // Set to true for verbose development logging
         
-        // Bookmarklet version tracking - increment when bookmarklet code changes
-        // Used to detect outdated bookmarklets and prompt users to update
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         * BOOKMARKLET VERSION CONTROL SYSTEM
+         * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         * 
+         * CRITICAL: This is a vital diagnostic feature for user support.
+         * When bookmarklet code changes, increment the version here.
+         * Users with outdated bookmarklets will see a prominent warning.
+         * 
+         * HOW TO UPDATE:
+         * 1. Make changes to bookmarklet code in generateNonIOSBookmarklet(),
+         *    showMobileExtractInstructions(), or showAndroidBookmarkletInstructions()
+         * 2. Increment CURRENT_BOOKMARKLET_VERSION below (e.g., '2.1' -> '2.2')
+         * 3. Update bookmarkletVersion:'X.X' in ALL bookmarklet postMessage calls
+         *    (search for "bookmarkletVersion:" to find all 3+ locations)
+         * 4. Deploy - old bookmarklets will now show update warning
+         * 
+         * VERSION HISTORY:
+         * - 2.1 (Jan 15, 2026): Client-side YouTube caption extraction (no CORS)
+         * - 2.0 (Jan 2026): Nonce security handshake, Twitter/X extraction
+         * - 1.0 (Initial): Basic HTML extraction
+         * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
         window.CURRENT_BOOKMARKLET_VERSION = '2.1';
         window.debugLog = (...args) => { if (window.DEBUG_MODE) console.log(...args); };
         window.debugWarn = (...args) => { if (window.DEBUG_MODE) console.warn(...args); };
@@ -13381,11 +13400,25 @@ Source: ${processor.currentData.source}
         
         /**
          * Show bookmarklet update warning (persistent banner)
-         * Prompts user to update their outdated bookmark
+         * CRITICAL: This is a vital diagnostic feature for distinguishing
+         * outdated bookmarklets from actual bugs. Keep this prominent!
+         * 
+         * The warning:
+         * - Appears at TOP of page (impossible to miss)
+         * - Has high contrast colors (orange/amber)
+         * - Includes clear action instructions
+         * - Links directly to setup page
+         * - Persists until manually dismissed
+         * - Will not show duplicates
          */
         function showBookmarkletUpdateWarning(message) {
             // Don't show duplicate warnings
             if (document.getElementById('bookmarkletUpdateWarning')) return;
+            
+            // Log for debugging
+            console.warn('🔄 BOOKMARKLET UPDATE REQUIRED:', message);
+            console.warn('   Current version:', window.CURRENT_BOOKMARKLET_VERSION);
+            console.warn('   User needs to delete old bookmark and reinstall');
             
             const banner = document.createElement('div');
             banner.id = 'bookmarkletUpdateWarning';
@@ -13396,47 +13429,71 @@ Source: ${processor.currentData.source}
                 right: 0;
                 background: linear-gradient(135deg, #f59e0b, #d97706);
                 color: #78350f;
-                padding: 16px 60px 16px 20px;
-                font-size: 14px;
+                padding: 20px 60px 20px 20px;
+                font-size: 15px;
                 font-weight: 600;
                 z-index: 100001;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
                 text-align: center;
+                animation: bookmarkletWarningPulse 2s ease-in-out 3;
             `;
+            
+            // Add pulse animation to draw attention
+            if (!document.getElementById('bookmarkletWarningStyle')) {
+                const style = document.createElement('style');
+                style.id = 'bookmarkletWarningStyle';
+                style.textContent = `
+                    @keyframes bookmarkletWarningPulse {
+                        0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+                        50% { box-shadow: 0 4px 30px rgba(245,158,11,0.6); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
             banner.innerHTML = `
-                <span style="margin-right: 8px;">⚠️</span>
-                ${message}
-                <strong style="margin-left: 8px;">Delete your old bookmark and re-add it from the setup page.</strong>
-                <a href="https://dhenz14.github.io/archive/" target="_blank" style="
-                    margin-left: 12px;
-                    background: #78350f;
-                    color: #fef3c7;
-                    padding: 6px 14px;
-                    border-radius: 6px;
-                    text-decoration: none;
-                    font-weight: 700;
-                    font-size: 13px;
-                    transition: all 0.2s;
-                ">Go to Setup Page</a>
-                <button onclick="this.parentElement.remove()" style="
-                    position: absolute;
-                    right: 15px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    background: rgba(0,0,0,0.2);
-                    border: none;
-                    color: #78350f;
-                    font-size: 18px;
-                    cursor: pointer;
-                    border-radius: 50%;
-                    width: 28px;
-                    height: 28px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                ">×</button>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="font-size: 18px; margin-bottom: 8px;">
+                        <span style="margin-right: 8px;">⚠️</span>
+                        <strong>Bookmark Update Required</strong>
+                    </div>
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 12px;">
+                        ${message}
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                        <a href="https://dhenz14.github.io/archive/" target="_blank" style="
+                            background: #78350f;
+                            color: #fef3c7;
+                            padding: 10px 20px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            font-weight: 700;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        ">🔄 Update Bookmark Now</a>
+                        <button onclick="this.closest('#bookmarkletUpdateWarning').remove()" style="
+                            background: rgba(120,53,15,0.2);
+                            border: 2px solid #78350f;
+                            color: #78350f;
+                            padding: 10px 20px;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            font-size: 14px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">Dismiss (I'll update later)</button>
+                    </div>
+                </div>
             `;
             document.body.appendChild(banner);
+            
+            // Also show a notification that won't be missed
+            if (typeof showToast === 'function') {
+                showToast('warning', 'Your bookmark needs updating - see banner above');
+            }
         }
         
         /**
