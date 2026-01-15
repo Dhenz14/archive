@@ -13556,6 +13556,14 @@ ${escapeHtml(partContent)}
          */
         async function postToHiveKeychain(payload) {
             return new Promise((resolve, reject) => {
+                const isComment = payload.parent_author !== '';
+                const metadataStr = JSON.stringify(payload.json_metadata);
+                
+                debugLog(`📤 Keychain ${isComment ? 'COMMENT' : 'POST'}: @${payload.author}/${payload.permlink}`);
+                debugLog(`   Parent: @${payload.parent_author || '(root)'}/${payload.parent_permlink}`);
+                debugLog(`   Title: "${payload.title || '(empty)'}"`);
+                debugLog(`   Body: ${payload.body.length} chars, Metadata: ${metadataStr.length} chars`);
+                
                 // Build the comment operation with all required fields
                 const operations = [[
                     'comment',
@@ -13566,11 +13574,12 @@ ${escapeHtml(partContent)}
                         permlink: payload.permlink,
                         title: payload.title,
                         body: payload.body,
-                        json_metadata: JSON.stringify(payload.json_metadata)
+                        json_metadata: metadataStr
                     }
                 ]];
                 
                 // Check rewards option (normal, decline, or burn)
+                // Note: For comments, beneficiaries work the same as posts
                 const rewardsOption = document.getElementById('rewardsOption')?.value || 'normal';
                 if (rewardsOption !== 'normal') {
                     const commentOptions = {
@@ -13583,7 +13592,7 @@ ${escapeHtml(partContent)}
                         extensions: rewardsOption === 'burn' ? [[0, { beneficiaries: [{ account: 'null', weight: 10000 }] }]] : []
                     };
                     operations.push(['comment_options', commentOptions]);
-                    debugLog(`💰 Rewards mode: ${rewardsOption} - adding comment_options`);
+                    debugLog(`   💰 Rewards: ${rewardsOption} (comment_options added)`);
                 }
                 
                 window.hive_keychain.requestBroadcast(
@@ -13592,14 +13601,22 @@ ${escapeHtml(partContent)}
                     'Posting',
                     (response) => {
                         if (response.success) {
-                            debugLog(' Keychain broadcast successful:', response.result);
+                            debugLog(`✅ Keychain ${isComment ? 'comment' : 'post'} successful:`, response.result);
                             resolve({
                                 success: true,
                                 permlink: payload.permlink,
                                 author: payload.author
                             });
                         } else {
-                            reject(new Error(response.message || 'Keychain posting failed'));
+                            // Enhanced error logging
+                            console.error(`❌ Keychain ${isComment ? 'comment' : 'post'} FAILED:`, {
+                                message: response.message,
+                                error: response.error,
+                                data: response.data,
+                                request_id: response.request_id,
+                                fullResponse: response
+                            });
+                            reject(new Error(response.message || response.error || 'Keychain posting failed'));
                         }
                     }
                 );
