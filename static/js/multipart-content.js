@@ -742,9 +742,14 @@ function createManifest(config) {
         throw new Error(`Part hash count (${partHashes.length}) doesn't match total parts (${totalParts})`);
     }
     
-    // Validate hash format
-    if (!contentHashFull.sha256 || !contentHashFull.blake2b || !contentHashFull.md5) {
-        throw new Error('contentHashFull must contain sha256, blake2b, and md5');
+    // Validate hash format (SHA-256 and MD5 required, BLAKE2b optional for resilience)
+    // Note: hashString() may return blake2b=null if blakejs fails, so we don't require it
+    if (!contentHashFull.sha256 || !contentHashFull.md5) {
+        throw new Error('contentHashFull must contain sha256 and md5');
+    }
+    // Log if BLAKE2b is missing (for debugging, not blocking)
+    if (!contentHashFull.blake2b) {
+        mpDebugWarn('⚠️  BLAKE2b hash missing from contentHashFull (falling back to SHA-256 + MD5)');
     }
     
     // Validate pre-existing parts if provided
