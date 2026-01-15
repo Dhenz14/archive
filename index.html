@@ -6419,8 +6419,142 @@ if (typeof module === "object") {
                             return; // Exit - transcript handled
                         }
                         
-                        // No bookmarklet transcript - show error (CORS proxies removed)
-                        console.error('❌ YouTube: No transcript from bookmarklet');
+                        // Method 2: Parse transcript from HTML (fallback - extract everything, filter later)
+                        console.log('🔄 No bookmarklet transcript, trying HTML parsing fallback...');
+                        try {
+                            // Helper: Extract JSON object with proper boundary matching
+                            const extractJsonObject = (text, startMarker) => {
+                                const startIdx = text.indexOf(startMarker);
+                                if (startIdx === -1) return null;
+                                let braceIdx = text.indexOf('{', startIdx);
+                                if (braceIdx === -1) return null;
+                                let depth = 0, inString = false, escape = false;
+                                for (let i = braceIdx; i < text.length; i++) {
+                                    const char = text[i];
+                                    if (escape) { escape = false; continue; }
+                                    if (char === '\\' && inString) { escape = true; continue; }
+                                    if (char === '"' && !escape) { inString = !inString; continue; }
+                                    if (!inString) {
+                                        if (char === '{') depth++;
+                                        else if (char === '}') { depth--; if (depth === 0) return text.substring(braceIdx, i + 1); }
+                                    }
+                                }
+                                return null;
+                            };
+                            
+                            // Helper: Parse JSON with escape handling
+                            const parseEscapedJson = (jsonStr) => {
+                                try { return JSON.parse(jsonStr); }
+                                catch (e) {
+                                    const unescaped = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
+                                    return JSON.parse(unescaped);
+                                }
+                            };
+                            
+                            // Extract ytInitialPlayerResponse from HTML
+                            const markers = [
+                                'var ytInitialPlayerResponse = ',
+                                'ytInitialPlayerResponse = ',
+                                'var ytInitialPlayerResponse='
+                            ];
+                            
+                            let videoData = null;
+                            const htmlContent = data.html || processedHTML;
+                            for (const marker of markers) {
+                                const jsonStr = extractJsonObject(htmlContent, marker);
+                                if (jsonStr) {
+                                    try {
+                                        videoData = parseEscapedJson(jsonStr);
+                                        console.log('✅ Extracted player data from HTML');
+                                        break;
+                                    } catch (e) {
+                                        console.warn('⚠️ Could not parse player data:', e.message);
+                                    }
+                                }
+                            }
+                            
+                            if (videoData) {
+                                const videoTitle = videoData.videoDetails?.title || `YouTube Video ${videoId}`;
+                                const videoAuthor = videoData.videoDetails?.author || 'Unknown';
+                                const captions = videoData.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                                
+                                if (captions && captions.length > 0) {
+                                    console.log(`🎯 Found ${captions.length} caption tracks in HTML`);
+                                    
+                                    // Find best caption track (prefer English manual, then English auto, then any)
+                                    let track = captions.find(c => c.languageCode === 'en' && c.kind !== 'asr') ||
+                                               captions.find(c => c.languageCode === 'en') ||
+                                               captions.find(c => c.kind !== 'asr') ||
+                                               captions[0];
+                                    
+                                    if (track && track.baseUrl) {
+                                        console.log(`📡 Fetching captions: ${track.languageCode} (${track.kind === 'asr' ? 'auto' : 'manual'})`);
+                                        showLoadingModal('Fetching transcript...');
+                                        
+                                        // Fetch captions via CORS proxy
+                                        const CORS_PROXIES = [
+                                            'https://api.allorigins.win/raw?url=',
+                                            'https://corsproxy.io/?'
+                                        ];
+                                        
+                                        let subtitleContent = null;
+                                        for (const proxy of CORS_PROXIES) {
+                                            try {
+                                                const response = await fetch(proxy + encodeURIComponent(track.baseUrl), { signal: AbortSignal.timeout(10000) });
+                                                if (response.ok) {
+                                                    subtitleContent = await response.text();
+                                                    if (subtitleContent && !subtitleContent.includes('<!DOCTYPE')) {
+                                                        console.log('✅ Fetched subtitles:', subtitleContent.length, 'chars');
+                                                        break;
+                                                    }
+                                                }
+                                            } catch (e) {
+                                                console.warn('Proxy failed:', e.message);
+                                            }
+                                        }
+                                        
+                                        closeModal();
+                                        
+                                        if (subtitleContent && subtitleContent.includes('<text')) {
+                                            const cleanedTranscript = processor.cleanYouTubeSubtitles(subtitleContent);
+                                            
+                                            const result = {
+                                                content: cleanedTranscript,
+                                                title: videoTitle,
+                                                sourceUrl: data.url,
+                                                url: data.url,
+                                                type: 'youtube-transcript',
+                                                method: 'youtube-captions',
+                                                extractionMethod: 'youtube-captions-html-fallback',
+                                                wordCount: cleanedTranscript.split(/\s+/).filter(w => w.length > 0).length,
+                                                imageCount: 0,
+                                                images: [],
+                                                metadata: {
+                                                    videoId: videoId,
+                                                    author: videoAuthor,
+                                                    captionLang: track.languageCode,
+                                                    extractedVia: 'html-parsing-fallback'
+                                                }
+                                            };
+                                            
+                                            window._youtubeBookmarkletData = result;
+                                            const hashes = await processor.generateHashes(cleanedTranscript, result.title);
+                                            result.hashes = hashes;
+                                            processor.currentData = result;
+                                            showPreview(result);
+                                            showNotification('✅ Transcript extracted successfully!');
+                                            window._extractionInProgress = false;
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (htmlParseError) {
+                            console.error('HTML parsing failed:', htmlParseError);
+                        }
+                        
+                        // Both methods failed - show error
+                        console.error('❌ YouTube: All extraction methods failed');
                         showModal(`
                             <div style="padding: var(--spacing-xl); text-align: center;">
                                 <div style="font-size: 48px; margin-bottom: var(--spacing-md);">🎬</div>
