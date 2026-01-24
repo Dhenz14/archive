@@ -6408,41 +6408,6 @@ if (typeof module === "object") {
                             console.log('   Author:', data.youtubeData.author);
                             console.log('   Transcript length:', data.youtubeData.transcript.length, 'chars');
                             console.log('   Caption language:', data.youtubeData.captionLang);
-                        
-                        // Check if bookmarklet tried but failed (skip useless CORS fallback)
-                        } else if (data.youtubeData && data.youtubeData.error) {
-                            console.warn('⚠️ Bookmarklet extraction failed:', data.youtubeData.error);
-                            const errorMsg = data.youtubeData.error === 'no_captions' 
-                                ? 'This video doesn\'t have captions available.'
-                                : data.youtubeData.error === 'no_player_response'
-                                ? 'Could not access video data. Try refreshing the YouTube page first.'
-                                : 'Extraction error: ' + data.youtubeData.error;
-                            
-                            showModal(`
-                                <div style="padding: var(--spacing-xl); text-align: center;">
-                                    <div style="font-size: 48px; margin-bottom: var(--spacing-md);">🎬</div>
-                                    <h2 style="margin-bottom: var(--spacing-md); color: var(--text-primary);">Transcript Not Available</h2>
-                                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">
-                                        <strong>${errorMsg}</strong>
-                                    </p>
-                                    <p style="color: var(--text-tertiary); font-size: 0.9rem; margin-bottom: var(--spacing-lg);">
-                                        ${data.youtubeData.error === 'no_player_response' 
-                                            ? 'YouTube clears video data after page navigation. Please refresh the YouTube page and try again.'
-                                            : 'The video may be age-restricted, private, or simply doesn\'t have captions enabled.'}
-                                    </p>
-                                    <div class="btn-group" style="gap: 10px;">
-                                        <button class="btn btn-primary" onclick="closeModal(); archiveYouTubeMetadata('${data.url}', '${videoId}');" style="min-height: var(--touch-target);">
-                                            📝 Archive Video Info Instead
-                                        </button>
-                                        <button class="btn" onclick="closeModal();" style="background: rgba(100, 116, 139, 0.1); color: var(--text-secondary); min-height: var(--touch-target);">
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            `);
-                            
-                            window._extractionInProgress = false;
-                            return; // Exit - don't try CORS fallback, it won't work either
                             
                             // Clean the transcript with noise filter
                             const cleanedTranscript = processor.cleanYouTubeSubtitles(data.youtubeData.transcript);
@@ -6484,6 +6449,41 @@ if (typeof module === "object") {
                             
                             window._extractionInProgress = false;
                             return; // Exit - transcript handled
+                        
+                        // Check if bookmarklet tried but failed (skip useless CORS fallback)
+                        } else if (data.youtubeData && data.youtubeData.error) {
+                            console.warn('⚠️ Bookmarklet extraction failed:', data.youtubeData.error);
+                            const errorMsg = data.youtubeData.error === 'no_captions' 
+                                ? 'This video doesn\'t have captions available.'
+                                : data.youtubeData.error === 'no_player_response'
+                                ? 'Could not access video data. Try refreshing the YouTube page first.'
+                                : 'Extraction error: ' + data.youtubeData.error;
+                            
+                            showModal(`
+                                <div style="padding: var(--spacing-xl); text-align: center;">
+                                    <div style="font-size: 48px; margin-bottom: var(--spacing-md);">🎬</div>
+                                    <h2 style="margin-bottom: var(--spacing-md); color: var(--text-primary);">Transcript Not Available</h2>
+                                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">
+                                        <strong>${errorMsg}</strong>
+                                    </p>
+                                    <p style="color: var(--text-tertiary); font-size: 0.9rem; margin-bottom: var(--spacing-lg);">
+                                        ${data.youtubeData.error === 'no_player_response' 
+                                            ? 'YouTube clears video data after page navigation. Please refresh the YouTube page and try again.'
+                                            : 'The video may be age-restricted, private, or simply doesn\'t have captions enabled.'}
+                                    </p>
+                                    <div class="btn-group" style="gap: 10px;">
+                                        <button class="btn btn-primary" onclick="closeModal(); archiveYouTubeMetadata('${data.url}', '${videoId}');" style="min-height: var(--touch-target);">
+                                            📝 Archive Video Info Instead
+                                        </button>
+                                        <button class="btn" onclick="closeModal();" style="background: rgba(100, 116, 139, 0.1); color: var(--text-secondary); min-height: var(--touch-target);">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            `);
+                            
+                            window._extractionInProgress = false;
+                            return; // Exit - don't try CORS fallback, it won't work either
                         }
                         
                         // Method 2: Parse transcript from HTML (fallback - extract everything, filter later)
