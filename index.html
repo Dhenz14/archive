@@ -19500,10 +19500,17 @@ try {
                                 
                                 try {
                                     debugLog(`  📡 Trying CORS proxy ${i+1}/${CORS_PROXIES.length} for PDF...`);
+                                    
+                                    // Cross-browser timeout using AbortController (Safari doesn't support AbortSignal.timeout)
+                                    const controller = new AbortController();
+                                    const timeoutId = setTimeout(() => controller.abort(), 30000);
+                                    
                                     const response = await fetch(proxyUrl, {
                                         headers: { 'Accept': 'application/pdf,*/*' },
-                                        signal: AbortSignal.timeout(30000) // 30s timeout for PDFs
+                                        signal: controller.signal
                                     });
+                                    
+                                    clearTimeout(timeoutId);
                                     
                                     if (!response.ok) {
                                         throw new Error(`HTTP ${response.status}`);
