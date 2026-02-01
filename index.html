@@ -9,6 +9,24 @@
     <title>ArcHive</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     
+    <!-- PDF.js Library for PDF Parsing -->
+    <script>
+        // PDF.js readiness gate - set to false before async module load
+        window.pdfjsReady = false;
+    </script>
+    <script type="module">
+        import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
+        window.pdfjsLib = pdfjsLib;
+        // Mark PDF.js as ready and update UI
+        window.pdfjsReady = true;
+        const pdfBtn = document.getElementById('pdfToggleText');
+        if (pdfBtn && pdfBtn.textContent === 'Loading PDF.js...') {
+            pdfBtn.textContent = 'Archive PDF';
+        }
+        console.log('📄 PDF.js loaded and ready');
+    </script>
+    
     <!-- PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2198,6 +2216,155 @@
                 grid-template-columns: 1fr;
             }
         }
+        
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         * PDF ARCHIVE STYLES
+         * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        
+        .pdf-upload-section {
+            margin: 16px auto;
+            max-width: 800px;
+        }
+        
+        .pdf-dropzone {
+            border: 3px dashed #667eea;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .pdf-dropzone:hover, .pdf-dropzone.drag-over {
+            border-color: #764ba2;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+        
+        .pdf-dropzone-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        
+        .pdf-dropzone-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .pdf-dropzone-hint {
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .pdf-progress-container {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .pdf-progress-container.show {
+            display: block;
+        }
+        
+        .pdf-progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        
+        .pdf-progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+        
+        .pdf-progress-text {
+            font-size: 14px;
+            color: #334155;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .pdf-preview-container {
+            display: none;
+            margin-top: 16px;
+        }
+        
+        .pdf-preview-container.show {
+            display: block;
+        }
+        
+        .pdf-page-thumbnails {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+        
+        .pdf-thumbnail {
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .pdf-thumbnail img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .pdf-thumbnail-label {
+            text-align: center;
+            padding: 4px;
+            font-size: 11px;
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        
+        .pdf-toggle-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .pdf-toggle-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+        }
+        
+        @media (max-width: 640px) {
+            .pdf-dropzone {
+                padding: 24px 16px;
+            }
+            
+            .pdf-dropzone-icon {
+                font-size: 36px;
+            }
+            
+            .pdf-page-thumbnails {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            }
+        }
     </style>
 </head>
 <body>
@@ -2318,6 +2485,40 @@
             <p id="loginTip" style="text-align: center; font-size: 13px; color: #718096; margin-bottom: 20px;">
                 Some sites require you to login to avoid a cutoff in data
             </p>
+            
+            <!-- PDF Archive Section -->
+            <div class="pdf-upload-section" id="pdfUploadSection">
+                <div style="text-align: center; margin-bottom: 8px;">
+                    <button class="pdf-toggle-btn" onclick="togglePdfSection()">
+                        <span id="pdfToggleIcon">📄</span>
+                        <span id="pdfToggleText">Archive PDF</span>
+                    </button>
+                </div>
+                
+                <div id="pdfDropzoneContainer" style="display: none;">
+                    <div class="pdf-dropzone" id="pdfDropzone" onclick="document.getElementById('pdfFileInput').click()">
+                        <div class="pdf-dropzone-icon">📄</div>
+                        <div class="pdf-dropzone-text">Drop PDF here or click to select</div>
+                        <div class="pdf-dropzone-hint">PDF files only (.pdf) • Max 50MB</div>
+                        <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display: none;" onchange="handlePdfFileSelect(event)">
+                    </div>
+                    
+                    <div class="pdf-progress-container" id="pdfProgressContainer">
+                        <div class="pdf-progress-bar">
+                            <div class="pdf-progress-fill" id="pdfProgressFill"></div>
+                        </div>
+                        <div class="pdf-progress-text" id="pdfProgressText">Processing PDF...</div>
+                    </div>
+                    
+                    <div class="pdf-preview-container" id="pdfPreviewContainer">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-weight: 600; color: #334155;">📑 PDF Pages</span>
+                            <span id="pdfPageCount" style="font-size: 13px; color: #64748b;"></span>
+                        </div>
+                        <div class="pdf-page-thumbnails" id="pdfPageThumbnails"></div>
+                    </div>
+                </div>
+            </div>
             
             <div id="advancedSection" style="display: none;">
                 <div class="input-card">
@@ -12361,6 +12562,416 @@ ${versionSection}${provenanceSection}
                 detailsContent.style.display = 'none';
                 detailsToggle.textContent = '▼ Show';
             }
+        }
+        
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         * PDF ARCHIVE FUNCTIONS
+         * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        
+        let pdfSectionOpen = false;
+        let currentPdfData = null;
+        
+        function togglePdfSection() {
+            const container = document.getElementById('pdfDropzoneContainer');
+            const icon = document.getElementById('pdfToggleIcon');
+            const text = document.getElementById('pdfToggleText');
+            
+            // Check if PDF.js is ready before allowing interaction
+            if (!window.pdfjsReady) {
+                text.textContent = 'Loading PDF.js...';
+                icon.textContent = '⏳';
+                showToast('warning', 'PDF.js is still loading. Please wait a moment...');
+                return;
+            }
+            
+            pdfSectionOpen = !pdfSectionOpen;
+            container.style.display = pdfSectionOpen ? 'block' : 'none';
+            icon.textContent = pdfSectionOpen ? '✕' : '📄';
+            text.textContent = pdfSectionOpen ? 'Close PDF' : 'Archive PDF';
+        }
+        
+        (function initPdfDropzone() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const dropzone = document.getElementById('pdfDropzone');
+                if (!dropzone) return;
+                
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, preventDefaults, false);
+                });
+                
+                function preventDefaults(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-over'));
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, () => dropzone.classList.remove('drag-over'));
+                });
+                
+                dropzone.addEventListener('drop', handlePdfDrop);
+            });
+        })();
+        
+        function handlePdfDrop(e) {
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                processPdfFile(files[0]);
+            } else {
+                showToast('error', 'Please drop a PDF file');
+            }
+        }
+        
+        function handlePdfFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processPdfFile(file);
+            }
+        }
+        
+        async function processPdfFile(file) {
+            if (!window.pdfjsLib) {
+                showToast('error', 'PDF.js library not loaded yet. Please wait and try again.');
+                return;
+            }
+            
+            if (file.size > 50 * 1024 * 1024) {
+                showToast('error', 'PDF file too large (max 50MB)');
+                return;
+            }
+            
+            const progressContainer = document.getElementById('pdfProgressContainer');
+            const progressFill = document.getElementById('pdfProgressFill');
+            const progressText = document.getElementById('pdfProgressText');
+            const previewContainer = document.getElementById('pdfPreviewContainer');
+            const thumbnailsContainer = document.getElementById('pdfPageThumbnails');
+            
+            progressContainer.classList.add('show');
+            previewContainer.classList.remove('show');
+            progressFill.style.width = '5%';
+            progressText.textContent = 'Loading PDF...';
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                progressFill.style.width = '10%';
+                progressText.textContent = 'Generating file hash...';
+                
+                const pdfHash = await generatePdfHash(arrayBuffer);
+                progressFill.style.width = '15%';
+                progressText.textContent = 'Parsing PDF structure...';
+                
+                const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const numPages = pdf.numPages;
+                
+                progressFill.style.width = '20%';
+                progressText.textContent = `Processing ${numPages} pages...`;
+                
+                const pdfTitle = file.name.replace(/\.pdf$/i, '');
+                let fullText = '';
+                const pageImages = [];
+                const pageThumbnails = [];
+                
+                for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                    const progress = 20 + (pageNum / numPages) * 70;
+                    progressFill.style.width = `${progress}%`;
+                    progressText.textContent = `Processing page ${pageNum}/${numPages}...`;
+                    
+                    const page = await pdf.getPage(pageNum);
+                    
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += `\n\n--- Page ${pageNum} ---\n\n${pageText}`;
+                    
+                    const viewport = page.getViewport({ scale: 1 });
+                    const maxWidth = 1200;
+                    const scale = Math.min(maxWidth / viewport.width, 2);
+                    const scaledViewport = page.getViewport({ scale });
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = scaledViewport.width;
+                    canvas.height = scaledViewport.height;
+                    const context = canvas.getContext('2d');
+                    
+                    await page.render({
+                        canvasContext: context,
+                        viewport: scaledViewport
+                    }).promise;
+                    
+                    const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                    pageImages.push({
+                        pageNum: pageNum,
+                        dataUrl: imageDataUrl,
+                        width: scaledViewport.width,
+                        height: scaledViewport.height
+                    });
+                    
+                    const thumbScale = 150 / viewport.width;
+                    const thumbViewport = page.getViewport({ scale: thumbScale });
+                    const thumbCanvas = document.createElement('canvas');
+                    thumbCanvas.width = thumbViewport.width;
+                    thumbCanvas.height = thumbViewport.height;
+                    const thumbContext = thumbCanvas.getContext('2d');
+                    
+                    await page.render({
+                        canvasContext: thumbContext,
+                        viewport: thumbViewport
+                    }).promise;
+                    
+                    pageThumbnails.push({
+                        pageNum: pageNum,
+                        dataUrl: thumbCanvas.toDataURL('image/jpeg', 0.6)
+                    });
+                }
+                
+                progressFill.style.width = '95%';
+                progressText.textContent = 'Finalizing...';
+                
+                fullText = fullText.trim();
+                
+                currentPdfData = {
+                    fileName: file.name,
+                    title: pdfTitle,
+                    fileSize: file.size,
+                    pageCount: numPages,
+                    pdfHash: pdfHash,
+                    textContent: fullText,
+                    pageImages: pageImages,
+                    timestamp: new Date().toISOString()
+                };
+                
+                thumbnailsContainer.innerHTML = pageThumbnails.map(thumb => `
+                    <div class="pdf-thumbnail">
+                        <img src="${thumb.dataUrl}" alt="Page ${thumb.pageNum}">
+                        <div class="pdf-thumbnail-label">Page ${thumb.pageNum}</div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('pdfPageCount').textContent = `${numPages} page${numPages > 1 ? 's' : ''}`;
+                
+                progressFill.style.width = '100%';
+                progressText.textContent = 'PDF processed! Ready to archive.';
+                
+                previewContainer.classList.add('show');
+                
+                setTimeout(() => {
+                    progressContainer.classList.remove('show');
+                }, 1500);
+                
+                await archivePdfContent();
+                
+            } catch (error) {
+                console.error('PDF processing error:', error);
+                showToast('error', 'Failed to process PDF: ' + error.message);
+                progressContainer.classList.remove('show');
+            }
+        }
+        
+        async function generatePdfHash(arrayBuffer) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        
+        async function archivePdfContent() {
+            if (!currentPdfData) {
+                showToast('error', 'No PDF data available');
+                return;
+            }
+            
+            const { fileName, title, pageCount, pdfHash, textContent, pageImages, timestamp, fileSize } = currentPdfData;
+            
+            // Generate hashes for each page image (for verification manifest)
+            const pageImageManifest = [];
+            for (let i = 0; i < pageImages.length; i++) {
+                const page = pageImages[i];
+                // Generate hash of the base64 data for verification
+                const imageData = page.dataUrl.split(',')[1]; // Get base64 part only
+                const imageHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(imageData));
+                const imageHashHex = Array.from(new Uint8Array(imageHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+                pageImageManifest.push({
+                    pageNum: page.pageNum,
+                    hash: imageHashHex,
+                    size: imageData.length
+                });
+            }
+            
+            // Build main post body WITHOUT embedded images (prevents corruption during multi-part split)
+            // Images are stored separately and posted as threaded comments
+            let pdfBody = `# ${title}
+
+## PDF Archive
+
+| Field | Value |
+|-------|-------|
+| Original File | ${fileName} |
+| Pages | ${pageCount} |
+| File Size | ${(fileSize / 1024).toFixed(1)} KB |
+| Archived | ${new Date(timestamp).toLocaleString()} |
+
+## File Verification
+
+**SHA-256 Hash of Original PDF:**
+\`${pdfHash}\`
+
+## Page Image Verification Manifest
+
+Each page image is stored separately and can be verified using these SHA-256 hashes:
+
+| Page | SHA-256 Hash |
+|------|--------------|
+${pageImageManifest.map(p => `| ${p.pageNum} | \`${p.hash.substring(0, 16)}...\` |`).join('\n')}
+
+---
+
+## Extracted Text Content
+
+${textContent || '(No text content extracted)'}
+
+---
+
+*Note: Page images are archived as separate threaded comments for optimal storage.*
+`;
+
+            const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length;
+            
+            // Store page images SEPARATELY (not embedded in body)
+            // These will be posted as threaded comments after main post
+            const pdfPageImages = pageImages.map((page, index) => ({
+                pageNum: page.pageNum,
+                base64: page.dataUrl.split(',')[1], // Just the base64 data
+                dataUrl: page.dataUrl, // Keep full dataUrl for display
+                hash: pageImageManifest[index].hash,
+                width: page.width,
+                height: page.height
+            }));
+            
+            const archiveData = {
+                title: title,
+                content: pdfBody,
+                source: `file://${fileName}`,
+                url: `file://${fileName}`,
+                timestamp: timestamp,
+                wordCount: wordCount,
+                imageCount: pageImages.length,
+                method: 'pdf-upload',
+                type: 'pdf',
+                pdfMetadata: {
+                    fileName: fileName,
+                    pageCount: pageCount,
+                    fileSize: fileSize,
+                    pdfHash: pdfHash
+                },
+                // Store page images separately for multi-part posting
+                pdfPageImages: pdfPageImages,
+                pageImageManifest: pageImageManifest
+            };
+            
+            const hashes = await processor.generateHashes(textContent, title);
+            archiveData.hashes = hashes;
+            
+            processor.currentData = archiveData;
+            
+            await displayResults(archiveData);
+            
+            await savePdfToIndexedDB(currentPdfData, archiveData);
+            
+            showToast('success', `PDF archived: ${pageCount} pages processed`);
+        }
+        
+        async function savePdfToIndexedDB(pdfData, archiveData) {
+            try {
+                // Use the existing ArcHiveStorage system instead of separate database
+                // This integrates PDF archives with the main archive history
+                if (typeof window.ArcHiveStorage !== 'undefined') {
+                    const seriesId = archiveData.hashes?.content?.sha256 || pdfData.pdfHash;
+                    
+                    // Store page images as content parts (for multi-part posting)
+                    const pageImageParts = (archiveData.pdfPageImages || []).map((page, index) => ({
+                        content: `### Page ${page.pageNum}\n\n![Page ${page.pageNum}](data:image/jpeg;base64,${page.base64})`,
+                        byteSize: page.base64.length,
+                        wordCount: 0,
+                        pageNum: page.pageNum,
+                        hash: page.hash
+                    }));
+                    
+                    // Save page images to content parts store
+                    if (pageImageParts.length > 0) {
+                        await window.ArcHiveStorage.saveContentParts(seriesId, pageImageParts, {
+                            title: pdfData.title,
+                            url: `file://${pdfData.fileName}`,
+                            type: 'pdf'
+                        });
+                    }
+                    
+                    // Save pipeline state with PDF metadata
+                    await window.ArcHiveStorage.savePipelineState(seriesId, {
+                        status: 'pending',
+                        type: 'pdf',
+                        currentPart: 0,
+                        manifest: {
+                            total_parts: pageImageParts.length + 1, // +1 for main post
+                            pdfHash: pdfData.pdfHash,
+                            fileName: pdfData.fileName,
+                            pageCount: pdfData.pageCount,
+                            fileSize: pdfData.fileSize,
+                            pageImageManifest: archiveData.pageImageManifest
+                        },
+                        metadata: {
+                            title: pdfData.title,
+                            timestamp: pdfData.timestamp
+                        }
+                    });
+                    
+                    debugLog(`💾 PDF saved to ArcHiveStorage: ${pdfData.fileName} (${pageImageParts.length} page images)`);
+                } else {
+                    // Fallback: Use legacy separate database if ArcHiveStorage not available
+                    const db = await openPdfDatabase();
+                    const tx = db.transaction('pdfs', 'readwrite');
+                    const store = tx.objectStore('pdfs');
+                    
+                    const record = {
+                        id: pdfData.pdfHash,
+                        fileName: pdfData.fileName,
+                        title: pdfData.title,
+                        pageCount: pdfData.pageCount,
+                        fileSize: pdfData.fileSize,
+                        pdfHash: pdfData.pdfHash,
+                        textContent: pdfData.textContent,
+                        pageImages: pdfData.pageImages.map(p => ({
+                            pageNum: p.pageNum,
+                            width: p.width,
+                            height: p.height
+                            // Note: Not storing full dataUrl in legacy mode to save space
+                        })),
+                        timestamp: pdfData.timestamp
+                    };
+                    
+                    await store.put(record);
+                    
+                    debugLog(`💾 PDF saved to legacy IndexedDB: ${pdfData.fileName}`);
+                }
+            } catch (error) {
+                debugWarn('⚠️ Failed to save PDF to IndexedDB:', error);
+            }
+        }
+        
+        function openPdfDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('ArcHivePDF', 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('pdfs')) {
+                        db.createObjectStore('pdfs', { keyPath: 'id' });
+                    }
+                };
+            });
         }
         
         /**
