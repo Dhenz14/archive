@@ -2384,7 +2384,7 @@
                     <h3>⚠️ Incomplete Threaded Posting Detected</h3>
                     <p id="resumeSummary"></p>
                     <div class="resume-banner-actions">
-                        <button onclick="showResumeModal()" class="btn-primary">📤 Resume Posting Remaining Parts as Threaded Replies</button>
+                        <button onclick="showResumeModal()" class="btn-primary">🔍 Review Saved Posting Progress</button>
                         <button onclick="clearIncompletePipeline()" class="btn-secondary">❌ Cancel & Clear</button>
                     </div>
                 </div>
@@ -2801,12 +2801,12 @@ Examples:
     <!-- Phase 9: Resume Modal -->
     <div id="resumeModal" class="modal">
         <div class="modal-content">
-            <h3>🔄 Resume Posting Remaining Threaded Replies?</h3>
+            <h3>🔍 Review Incomplete Threaded Posting</h3>
             <div id="resumeDetails"></div>
             <div id="verificationProgress" style="display: none;"></div>
             <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md); min-height: 44px;">
                 <button id="resumeConfirmBtn" onclick="confirmResume()" class="btn btn-success btn-full" style="flex: 1; min-height: 44px;">
-                    🔍 Verify & Resume
+                    🔍 Verify Parts
                 </button>
                 <button onclick="closeResumeModal()" class="btn btn-full" style="background: #9ca3af; flex: 1; min-height: 44px;">
                     ❌ Cancel
@@ -2822,10 +2822,10 @@ Examples:
             <div id="pausedDetails"></div>
             <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md); min-height: 44px;">
                 <button onclick="retryPausedPosting()" class="btn btn-success btn-full" style="flex: 1; min-height: 44px;">
-                    🔄 Retry Now
+                    ⚠️ Show Recovery Steps
                 </button>
                 <button onclick="closePausedModal()" class="btn btn-full" style="background: #9ca3af; flex: 1; min-height: 44px;">
-                    📅 Resume Later
+                    💾 Keep Saved
                 </button>
             </div>
         </div>
@@ -17769,6 +17769,38 @@ try {
         // Global resume state
         window.resumeCandidates = [];
         window.currentResumeCandidate = null;
+
+        const RESUME_RESTART_UNSUPPORTED_MESSAGE = 'Automatic resume/retry is not available in this build. Re-extract the original content and post it again.';
+
+        /**
+         * Mark a saved posting state as requiring manual recovery.
+         * Keeps the original state for review without claiming a restart happened.
+         */
+        function markResumeActionUnsupported(seriesId, state, reason) {
+            if (!seriesId || !state) {
+                return;
+            }
+
+            try {
+                const stateKey = `archive_multipart_pipeline_${seriesId}`;
+                const updatedState = {
+                    ...state,
+                    resumeUnsupported: true,
+                    resumeUnsupportedReason: reason,
+                    resumeUnsupportedAt: new Date().toISOString()
+                };
+
+                localStorage.setItem(stateKey, JSON.stringify(updatedState));
+                debugWarn(`⚠️ Resume/retry unsupported for series ${seriesId}: ${reason}`);
+            } catch (error) {
+                debugWarn('⚠️ Failed to mark resume action unsupported:', error);
+            }
+        }
+
+        function showResumeUnsupportedNotice(seriesId, state, reason) {
+            markResumeActionUnsupported(seriesId, state, reason);
+            showNotification(`⚠️ ${RESUME_RESTART_UNSUPPORTED_MESSAGE}`);
+        }
         
         /**
          * Generate unique tab ID for posting locks
@@ -17949,7 +17981,7 @@ try {
                         lastAttempt: new Date(state.savedAt),
                         isValid: true,
                         stateVersion: state.stateVersion,
-                        state: state, // Full state for resume
+                        state: state, // Full saved state for recovery review
                         hasContentInIndexedDB: false, // Will check below
                         contentParts: null // Will load below if available
                     };
@@ -17988,7 +18020,7 @@ try {
         
         /**
          * Show resume banner with incomplete posting info
-         * PHASE 1.4: Now shows "✅ 1-Click Resume" or "⚠️ Re-extraction required"
+         * Automatic restart is not wired; saved progress is review-only.
          */
         function showResumeBanner(candidates) {
             const banner = document.getElementById('resumeBanner');
@@ -18012,9 +18044,9 @@ try {
                 const candidate = candidates[0];
                 const timeAgo = getTimeAgo(candidate.lastAttempt);
                 
-                // PHASE 1.4: Show different message based on IndexedDB content availability
+                // Show different message based on IndexedDB content availability
                 const resumeStatus = candidate.hasContentInIndexedDB 
-                    ? '<span style="color: #10b981; font-weight: 600;">✅ 1-Click Resume</span> (content stored)'
+                    ? '<span style="color: #f59e0b; font-weight: 600;">⚠️ Restart unsupported</span> (content stored for review)'
                     : '<span style="color: #f59e0b; font-weight: 600;">⚠️ Re-extraction required</span> (content not saved)';
                 
                 summary.innerHTML = `
@@ -18030,9 +18062,9 @@ try {
                 
                 summary.innerHTML = `
                     <strong>${candidates.length} incomplete posting(s) found</strong><br>
-                    ${withContent > 0 ? `✅ ${withContent} with stored content (1-click resume)<br>` : ''}
+                    ${withContent > 0 ? `⚠️ ${withContent} with stored content but restart unsupported<br>` : ''}
                     ${withoutContent > 0 ? `⚠️ ${withoutContent} requiring re-extraction<br>` : ''}
-                    Click "Resume Posting" to choose which one to continue
+                    Review saved progress before re-extracting the source content
                 `;
             }
             
@@ -18085,7 +18117,7 @@ try {
                            (Parts ${completedParts.join(', ')})</p>
                         <p><strong>Parts remaining:</strong> ${candidate.remainingCount}/${candidate.manifest.total_parts}
                            (Parts ${remainingParts.join(', ')})</p>
-                        <p class="info-text">ℹ️ We'll verify existing parts on blockchain before continuing</p>
+                        <p class="info-text">ℹ️ We'll verify existing parts on blockchain. Automatic restart is not available; missing parts require re-extraction.</p>
                     </div>
                 `;
             } else {
@@ -18100,7 +18132,7 @@ try {
                                            style="margin-right: 8px;">
                                     <div>
                                         <strong>Series ${c.series_id.substring(0, 12)}...</strong><br>
-                                        <small>${c.completedCount}/${c.manifest.total_parts} parts - ${getTimeAgo(c.lastAttempt)}</small>
+                                        <small>${c.completedCount}/${c.manifest.total_parts} parts - ${getTimeAgo(c.lastAttempt)} - ${c.hasContentInIndexedDB ? 'stored content, restart unsupported' : 're-extraction required'}</small>
                                     </div>
                                 </label>
                             </div>
@@ -18130,10 +18162,10 @@ try {
         }
         
         /**
-         * Confirm and start resume process
+         * Verify saved posting progress and show recovery status.
          */
         async function confirmResume() {
-            debugLog(' Starting resume process...');
+            debugLog(' Starting saved posting verification...');
             
             // Determine which candidate to resume
             let candidate = window.currentResumeCandidate;
@@ -18152,7 +18184,7 @@ try {
                 return;
             }
             
-            debugLog(`📋 Resuming series: ${candidate.series_id}`);
+            debugLog(`📋 Reviewing saved series: ${candidate.series_id}`);
             
             // Check posting lock
             const lockStatus = checkPostingLock(candidate.series_id);
@@ -18196,16 +18228,28 @@ try {
                 // Show verification summary
                 if (verificationProgress) {
                     verificationProgress.innerHTML += `
-                        <div class="verification-summary" style="margin-top: 12px; padding: 12px; background: #e8f5e9; border-radius: 4px;">
+                        <div class="verification-summary" style="margin-top: 12px; padding: 12px; background: #fff7ed; border-radius: 4px;">
                             <p><strong>✅ Verification Complete</strong></p>
                             <p>✅ Verified: ${results.verified.length} parts</p>
-                            <p>⚠️ Failed/Missing: ${results.failed.length + results.missing.length} parts (will retry)</p>
-                            <button onclick="startResumePosting()" 
-                                    style="margin-top: 8px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                📤 Start Posting Remaining Parts
+                            <p>⚠️ Failed/Missing: ${results.failed.length + results.missing.length} parts need re-extraction before reposting</p>
+                            <p style="margin-top: 8px; color: #92400e;">${RESUME_RESTART_UNSUPPORTED_MESSAGE}</p>
+                            <button onclick="closeResumeModal()"
+                                    style="margin-top: 8px; padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Close
                             </button>
                         </div>
                     `;
+                }
+
+                markResumeActionUnsupported(
+                    candidate.series_id,
+                    candidate.state,
+                    'verification completed but automatic pipeline restart is not implemented'
+                );
+
+                if (resumeConfirmBtn) {
+                    resumeConfirmBtn.disabled = false;
+                    resumeConfirmBtn.textContent = '🔍 Verify Again';
                 }
                 
                 // Store verification results
@@ -18217,7 +18261,7 @@ try {
                 
                 if (resumeConfirmBtn) {
                     resumeConfirmBtn.disabled = false;
-                    resumeConfirmBtn.textContent = '🔍 Verify & Resume';
+                    resumeConfirmBtn.textContent = '🔍 Verify Parts';
                 }
             }
         }
@@ -18248,11 +18292,9 @@ try {
         }
         
         /**
-         * Start posting remaining parts after verification
+         * Report unsupported automatic restart after verification.
          */
-        async function startResumePosting() {
-            debugLog('📤 Starting resume posting...');
-            
+        function startResumePosting() {
             const candidate = window.currentResumeCandidate;
             const results = window.currentResumeResults;
             
@@ -18260,41 +18302,19 @@ try {
                 showNotification('❌ Resume data not available');
                 return;
             }
-            
-            // Close resume modal
-            closeResumeModal();
-            
-            // Hide resume banner
-            const banner = document.getElementById('resumeBanner');
-            if (banner) {
-                banner.style.display = 'none';
-            }
-            
-            // Update manifest with verification results
-            // Mark verified parts as already posted, failed parts will be retried
-            candidate.manifest.parts.forEach((part, i) => {
-                if (results.verified.includes(part.part_number)) {
-                    part.status = 'posted'; // Keep as posted (verified)
-                } else if (results.failed.includes(part.part_number) || results.missing.includes(part.part_number)) {
-                    part.status = 'pending'; // Reset to pending (will retry)
-                }
+
+            showResumeUnsupportedNotice(
+                candidate.series_id,
+                candidate.state,
+                'resume requested after verification but automatic pipeline restart is not implemented'
+            );
+
+            debugWarn('Resume request blocked as unsupported:', {
+                seriesId: candidate.series_id,
+                verifiedParts: results.verified.length,
+                failedParts: results.failed.length,
+                missingParts: results.missing.length
             });
-            
-            // Show notification
-            showNotification(`🔄 Resuming multi-part posting... (${results.failed.length + results.missing.length} parts remaining)`);
-            
-            // Acquire posting lock
-            acquirePostingLock(candidate.series_id);
-            
-            // Resume posting through existing multi-part flow
-            // This will use the updated manifest with verified parts marked as posted
-            debugLog(' Updated manifest:', candidate.manifest);
-            
-            showNotification('✅ Resume posting started - check console for progress');
-            
-            // TODO: Integrate with actual posting pipeline
-            // For now, just log the resume action
-            debugLog(' Would resume posting here with manifest:', candidate.manifest);
         }
         
         /**
@@ -18341,7 +18361,8 @@ try {
             
             details.innerHTML = `
                 <p>Network errors prevented posting <strong>Part ${partNumber}</strong> after 3 attempts.</p>
-                <p>Your progress has been saved.</p>
+                <p>Your progress has been saved for review.</p>
+                <p>Automatic retry is not available in this build. Re-extract the original content and post it again.</p>
                 <p class="error-text" style="font-size: 12px; color: #666;">Error: ${error}</p>
             `;
             
@@ -18352,7 +18373,8 @@ try {
         }
         
         /**
-         * Retry paused posting immediately
+         * Show recovery guidance for a paused posting.
+         * Automatic retry is intentionally blocked until the full pipeline restart is wired.
          */
         function retryPausedPosting() {
             const seriesId = window.pausedSeriesId;
@@ -18367,12 +18389,14 @@ try {
                 modal.style.display = 'none';
             }
             
-            // Load state and resume
+            // Load state for recovery guidance
             const state = window.ArcHiveMultiPart.HivePostingPipeline.loadState(seriesId);
             if (state) {
-                showNotification('🔄 Retrying posting...');
-                // TODO: Integrate with actual posting pipeline
-                debugLog(' Would retry posting here with state:', state);
+                showResumeUnsupportedNotice(
+                    seriesId,
+                    state,
+                    'retry requested but automatic pipeline restart is not implemented'
+                );
             } else {
                 showNotification('❌ Failed to load saved state');
             }
@@ -18857,7 +18881,7 @@ try {
         }
         
         /**
-         * Close paused modal and resume later
+         * Close paused modal and keep saved progress for review
          */
         function closePausedModal() {
             const modal = document.getElementById('pausedModal');
@@ -18865,9 +18889,9 @@ try {
                 modal.style.display = 'none';
             }
             
-            showNotification('💾 Progress saved. You can resume from the banner above.');
+            showNotification('💾 Progress saved. Re-extract the original content before reposting missing parts.');
             
-            // Refresh resume candidates to show the paused posting
+            // Refresh candidates to show the saved posting
             discoverResumeCandidates().then(candidates => {
                 showResumeBanner(candidates);
             });
@@ -18993,7 +19017,7 @@ try {
             
             try {
                 const notification = new Notification('ArcHive Posting Paused', {
-                    body: `Progress saved: ${completedParts} of ${totalParts} parts posted\n\nClick to resume posting`,
+                    body: `Progress saved: ${completedParts} of ${totalParts} parts posted\n\nClick to review recovery details`,
                     icon: '/favicon.svg',
                     badge: '/favicon.svg',
                     tag: `archive-paused-${seriesId}`,
@@ -19011,7 +19035,7 @@ try {
                     window.focus();
                     notification.close();
                     
-                    // Trigger resume modal
+                    // Trigger recovery review modal
                     window.location.hash = `resume=${seriesId}`;
                     checkNotificationDeepLink();
                 };
@@ -19036,7 +19060,7 @@ try {
             
             try {
                 const notification = new Notification('ArcHive Posting Interrupted', {
-                    body: `Browser closing! Progress saved: ${completedParts} of ${totalParts} parts posted\n\nReopen ArcHive to resume`,
+                    body: `Browser closing! Progress saved: ${completedParts} of ${totalParts} parts posted\n\nReopen ArcHive to review recovery details`,
                     icon: '/favicon.svg',
                     badge: '/favicon.svg',
                     tag: `archive-interrupted-${seriesId}`,
@@ -19054,7 +19078,7 @@ try {
                     window.focus();
                     notification.close();
                     
-                    // Trigger resume modal
+                    // Trigger recovery review modal
                     window.location.hash = `resume=${seriesId}`;
                     checkNotificationDeepLink();
                 };
@@ -19179,7 +19203,7 @@ try {
             discoverResumeCandidates().then(resumeCandidates => {
                 if (resumeCandidates.length > 0) {
                     showResumeBanner(resumeCandidates);
-                    debugLog(`📋 Found ${resumeCandidates.length} incomplete posting(s) that can be resumed`);
+                    debugLog(`📋 Found ${resumeCandidates.length} incomplete posting(s) needing recovery review`);
                 }
             });
             

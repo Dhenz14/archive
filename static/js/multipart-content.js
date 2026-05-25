@@ -1113,7 +1113,7 @@ async function verifyCompletedParts(manifest, partHashes, progressCallback = nul
             if (!post || !post.body) {
                 // Post not found on blockchain
                 results.failed.push(partNumber);
-                console.warn(`  ❌ Part ${partNumber}: Not found on blockchain - will retry`);
+                console.warn(`  ❌ Part ${partNumber}: Not found on blockchain - needs repost after re-extraction`);
                 
                 if (progressCallback) {
                     progressCallback({
@@ -1134,7 +1134,7 @@ async function verifyCompletedParts(manifest, partHashes, progressCallback = nul
                 // Check SHA-256 match
                 if (actualHash.sha256 !== expectedHash.sha256) {
                     results.failed.push(partNumber);
-                    console.warn(`  ⚠️  Part ${partNumber}: Hash mismatch - will retry`);
+                    console.warn(`  ⚠️  Part ${partNumber}: Hash mismatch - needs repost after re-extraction`);
                     console.warn(`     Expected: ${expectedHash.sha256.substring(0, 16)}...`);
                     console.warn(`     Actual:   ${actualHash.sha256.substring(0, 16)}...`);
                     
@@ -1143,7 +1143,7 @@ async function verifyCompletedParts(manifest, partHashes, progressCallback = nul
                             partNumber,
                             status: 'failed',
                             reason: 'hash_mismatch',
-                            message: `Part ${partNumber}: Content modified - will retry`
+                            message: `Part ${partNumber}: Content modified - needs repost after re-extraction`
                         });
                     }
                     continue;
@@ -1794,9 +1794,9 @@ class HivePostingPipeline {
                 } else {
                     // Exhausted all retries - Phase 9: Pause instead of failing
                     console.error(`❌ Part ${partNumber} failed after ${this.maxAttempts} attempts`);
-                    mpDebugLog(`⏸️  Pausing pipeline - can be resumed later`);
+                    mpDebugLog(`⏸️  Pausing pipeline - automatic restart is unsupported`);
                     
-                    // Mark as paused (preserves state for resume)
+                    // Mark as paused (preserves state for recovery review)
                     this.markAsPaused();
                     
                     // Fire paused callback
@@ -1806,10 +1806,11 @@ class HivePostingPipeline {
                         totalParts: this.manifest.total_parts,
                         attempt: attempt,
                         status: 'paused',
-                        message: `Posting paused after ${this.maxAttempts} failed attempts on part ${partNumber}. You can resume later.`,
+                        message: `Posting paused after ${this.maxAttempts} failed attempts on part ${partNumber}. Re-extract the original content before reposting missing parts.`,
                         error: error.message,
                         manifestSnapshot: this._getManifestSnapshot(),
-                        canResume: true // Phase 9: Signal that resume is available
+                        canResume: false,
+                        requiresReExtraction: true
                     });
                     
                     return {
@@ -2018,12 +2019,12 @@ class HivePostingPipeline {
     
     /**
      * Mark pipeline as paused (Phase 9)
-     * Called when retries are exhausted - preserves state for resume
+     * Called when retries are exhausted - preserves state for recovery review
      */
     markAsPaused() {
         this.paused = true;
         this._saveState();
-        mpDebugLog(`⏸️  Pipeline marked as paused (can be resumed later)`);
+        mpDebugLog(`⏸️  Pipeline marked as paused (re-extraction required before repost)`);
     }
     
     /**
@@ -2116,13 +2117,13 @@ class HivePostingPipeline {
     }
     
     /**
-     * Resume pipeline from saved state (static method)
-     * Creates a new pipeline instance from localStorage
+     * Load saved pipeline state for recovery UI review.
+     * This does not restart posting; callers still need original content and transport/auth context.
      * 
      * @param {string} seriesId - Series ID to resume
-     * @param {Function} transportFunction - Hive posting function
-     * @param {Function} progressCallback - Progress callback
-     * @returns {HivePostingPipeline|null} - Pipeline instance or null if no saved state
+     * @param {Function} transportFunction - Unused until automatic restart is implemented
+     * @param {Function} progressCallback - Unused until automatic restart is implemented
+     * @returns {Object|null} - Saved state or null if no saved state
      */
     static resumeFromState(seriesId, transportFunction, progressCallback = null) {
         const state = HivePostingPipeline.loadState(seriesId);
@@ -2132,16 +2133,16 @@ class HivePostingPipeline {
             return null;
         }
         
-        // Extract content parts from manifest (if available)
-        // NOTE: Content parts are NOT saved to localStorage (too large)
-        // This is a limitation - user must provide content parts to resume
-        // Phase 9 will address this with content reconstruction
-        
-        mpDebugLog(`🔄 Resuming pipeline from saved state...`);
+        // NOTE: This helper intentionally returns state only. The UI must not
+        // claim posting resumed until it can recreate the pipeline with content
+        // parts and the original transport/auth context.
+        void transportFunction;
+        void progressCallback;
+
+        mpDebugLog(`⚠️ Loaded saved pipeline state; automatic restart is unsupported`);
         mpDebugLog(`   Series: ${seriesId}`);
         mpDebugLog(`   Progress: ${state.currentPart - 1}/${state.manifest.total_parts} parts posted`);
         
-        // For now, return the state object - caller must create pipeline with content
         return state;
     }
 }
