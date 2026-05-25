@@ -1,36 +1,63 @@
-# capabilities.yaml — ArcHive
-# Registers operator-visible surfaces for the HiveAI unified capability registry.
-# Organ: ledger.governance_chain (Hive blockchain integration — cryptographic webpage timestamps)
-# Source: README.md + index.html + hash-explorer.html + static/js
+# capabilities.yaml -- archive surface registry
+# Canonical capability contract consumed by Hive-AI unified capability registry.
 
-- name: archive-webpage
-  organ: ledger.governance_chain
+repo: archive
+schema_version: hiveai.unified_capability.v1
+contracts:
+- feature: archive-webpage
+  organ_id: ledger.governance_chain
+  source_organ: ledger.governance_chain
+  synergy_targets: []
+  gap_status: LIVE
+  repo: archive
   surface_type: pwa_app
   surface_path: index.html
-  description: Client-side webpage archiver. Extracts main article content (with Twitter/X tweet-only mode), generates 9 cryptographic fingerprints (SHA-256, BLAKE2b, MD5 — for content, title, overall), and posts the record to the Hive blockchain via Hive Keychain. Tamper-evident, decentralized, free. Bookmarklet for desktop/iOS; direct-URL paste for Android.
-  status: LIVE
-  source_file: index.html
-
-- name: link-explorer
-  organ: ledger.governance_chain
+  description: Client-side webpage archiver. Extracts main article content (with Twitter/X
+    tweet-only mode), generates 9 cryptographic fingerprints (SHA-256, BLAKE2b, MD5
+    — for content, title, overall), and posts the record to the Hive blockchain via
+    Hive Keychain. Tamper-evident, decentralized, free. Bookmarklet for desktop/iOS;
+    direct-URL paste for Android.
+  evidence_refs:
+  - index.html
+  entry_path: index.html
+- feature: link-explorer
+  organ_id: ledger.governance_chain
+  source_organ: ledger.governance_chain
+  synergy_targets: []
+  gap_status: LIVE
+  repo: archive
   surface_type: pwa_app
   surface_path: hash-explorer.html
-  description: Search any URL to find existing ArcHive blockchain archives. URL normalization (canonical handling) ensures discovery even when the URL has changed slightly. Verifies content integrity by comparing hashes against the blockchain record.
-  status: LIVE
-  source_file: hash-explorer.html
-
-- name: hive-lookup-with-failover
-  organ: ledger.governance_chain
+  description: Search any URL to find existing ArcHive blockchain archives. URL normalization
+    (canonical handling) ensures discovery even when the URL has changed slightly.
+    Verifies content integrity by comparing hashes against the blockchain record.
+  evidence_refs:
+  - hash-explorer.html
+  entry_path: hash-explorer.html
+- feature: hive-lookup-with-failover
+  organ_id: ledger.governance_chain
+  source_organ: ledger.governance_chain
+  synergy_targets: []
+  gap_status: LIVE
+  repo: archive
   surface_type: library_function
   surface_path: static/js/hive-lookup.js
-  description: Hive blockchain API client with 9-node failover for archive posting and retrieval. Ensures availability even when individual RPC nodes are degraded.
-  status: LIVE
-  source_file: static/js/hive-lookup.js
-
-- name: multipart-content-splitter
-  organ: ledger.governance_chain
+  description: Hive blockchain API client with 9-node failover for archive posting
+    and retrieval. Ensures availability even when individual RPC nodes are degraded.
+  evidence_refs:
+  - static/js/hive-lookup.js
+  entry_path: static/js/hive-lookup.js
+- feature: multipart-content-splitter
+  organ_id: ledger.governance_chain
+  source_organ: ledger.governance_chain
+  synergy_targets: []
+  gap_status: LIVE
+  repo: archive
   surface_type: library_function
   surface_path: static/js/multipart-content.js
-  description: Large-content splitter — content above 64KB is auto-split into multiple parts and posted as threaded comments on Hive, with seamless reassembly on retrieval. Enables archiving long articles within Hive's per-comment size limit.
-  status: LIVE
-  source_file: static/js/multipart-content.js
+  description: Large-content splitter — content above 64KB is auto-split into multiple
+    parts and posted as threaded comments on Hive, with seamless reassembly on retrieval.
+    Enables archiving long articles within Hive's per-comment size limit.
+  evidence_refs:
+  - static/js/multipart-content.js
+  entry_path: static/js/multipart-content.js
