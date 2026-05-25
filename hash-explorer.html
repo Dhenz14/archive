@@ -1471,7 +1471,7 @@ ${escapeHtml(part.content.substring(0, 1000))}${part.content.length > 1000 ? '\n
                             <p style="margin: 0 0 0.5rem 0;"><strong>Search method:</strong> ${searchMethod}</p>
                             <p style="margin: 0 0 0.5rem 0;"><strong>Searched:</strong> ${allPosts.length} total archives</p>
                             ${html ? '<p style="margin: 0 0 0.5rem 0;"><strong>Smart tags used:</strong> ' + tags.slice(0, 5).join(', ') + '</p>' : ''}
-                            <p style="margin: 0;"><strong>Want to archive it?</strong> <a href="archive-paste.html" style="color: #3b82f6;">Use ArcHive Paste →</a></p>
+                            <p style="margin: 0;"><strong>Want to archive it?</strong> <a href="index.html?url=${encodeURIComponent(url)}" style="color: #3b82f6;">Open ArcHive →</a></p>
                         </div>
                     `;
                     return;
@@ -1845,7 +1845,7 @@ ${escapeHtml(part.content.substring(0, 1000))}${part.content.length > 1000 ? '\n
                                         <strong>Hash verification:</strong> SHA-256: ${sha256Matches ? '✓' : '✗'} | BLAKE2b: ${blake2bMatches ? '✓' : '✗'} | MD5: ${md5Matches ? '✓' : '✗'}
                                     </div>
                                     <div style="margin-top: 1rem;">
-                                        <a href="archive-paste.html?url=${encodeURIComponent(sourceUrl)}" 
+                                        <a href="index.html?url=${encodeURIComponent(sourceUrl)}"
                                            style="display: inline-block; background: rgba(255,255,255,0.95); color: #d97706; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 700; border: 2px solid rgba(255,255,255,0.3); transition: all 0.2s;"
                                            onmouseover="this.style.background='white'; this.style.transform='translateY(-2px)'"
                                            onmouseout="this.style.background='rgba(255,255,255,0.95)'; this.style.transform='translateY(0)'">
